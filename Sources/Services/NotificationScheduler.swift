@@ -133,3 +133,41 @@ final class NotificationScheduler: ObservableObject {
         return chosen.sorted { $0.fireDate < $1.fireDate }
     }
 }
+
+/// Receives taps on reminders. The App installs it from its init, before launch
+/// finishes, so a tap that cold-launches the app still opens the right date.
+@MainActor
+final class NotificationTapRouter: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
+    static let shared: NotificationTapRouter = NotificationTapRouter()
+
+    /// Set when a reminder is tapped. The list opens that date and clears it.
+    @Published var openedOccasionID: UUID? = nil
+
+    func install() {
+        UNUserNotificationCenter.current().delegate = self
+    }
+
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let raw = response.notification.request.content.userInfo["occasionID"] as? String
+        if let raw = raw, let id = UUID(uuidString: raw) {
+            Task { @MainActor in
+                self.openedOccasionID = id
+            }
+        }
+        completionHandler()
+    }
+
+    // Once a delegate is set, iOS asks it what to do with a reminder that fires while
+    // the app is open. Show it like any other.
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .list, .sound])
+    }
+}

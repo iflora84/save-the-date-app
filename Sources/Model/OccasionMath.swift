@@ -132,15 +132,4 @@ enum OccasionMath {
     static func dateText(of occasion: Occasion, calendar: Calendar) -> String {
         return dateText(month: occasion.month, day: occasion.day, year: occasion.year, calendar: calendar)
     }
-
-    static func timeText(hour: Int, minute: Int) -> String {
-        let fallback = String(format: "%02d:%02d", hour, minute)
-        guard let date = Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: Date()) else {
-            return fallback
-        }
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        formatter.dateStyle = .none
-        return formatter.string(from: date)
-    }
 }
