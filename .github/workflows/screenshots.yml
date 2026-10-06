@@ -1,0 +1,88 @@
+# Takes App Store screenshots on the largest iPhone simulator by launching the
+# app with "-demo <screen>" and grabbing the screen. Run by hand
+# (workflow_dispatch); download the "screenshots" artifact.
+name: Screenshots
+
+on:
+  workflow_dispatch:
+
+env:
+  SCHEME: SaveTheDate
+  BUNDLE_ID: com.iflora.savethedate
+
+jobs:
+  shots:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Pick simulator
+        id: sim
+        run: |
+          name=$(xcrun simctl list devices available | grep -oE 'iPhone [0-9]+ Pro Max' | sort -V | tail -1)
+          [ -n "$name" ] || name=$(xcrun simctl list devices available iPhone | grep -oE 'iPhone [^(]+' | head -1 | xargs)
+          udid=$(xcrun simctl list devices available | grep "$name (" | head -1 | grep -oE '[0-9A-F-]{36}')
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          echo "using $name $udid"
+
+      - name: Build for simulator
+        run: |
+          set -o pipefail
+          xcodebuild -project "${SCHEME}.xcodeproj" -scheme "$SCHEME" -configuration Debug \
+            -sdk iphonesimulator -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build/sim CODE_SIGNING_ALLOWED=NO build \
+            | tee build.log | grep -E "error:|\*\* BUILD" || true
+          grep -q "\*\* BUILD SUCCEEDED \*\*" build.log
+          ls build/sim/Build/Products/Debug-iphonesimulator/
+
+      - name: Boot and install
+        run: |
+          udid=${{ steps.sim.outputs.udid }}
+          xcrun simctl boot "$udid" || true
+          xcrun simctl bootstatus "$udid" -b
+          # Deliberately light: the app forces dark via UIUserInterfaceStyle, so a light
+          # simulator proves the force still works. Light shots mean the force broke.
+          xcrun simctl ui "$udid" appearance light
+          xcrun simctl status_bar "$udid" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
+          xcrun simctl install "$udid" "build/sim/Build/Products/Debug-iphonesimulator/${SCHEME}.app"
+
+      - name: Capture
+        run: |
+          udid=${{ steps.sim.outputs.udid }}
+          mkdir -p shots
+          shoot () {
+            xcrun simctl terminate "$udid" "$BUNDLE_ID" 2>/dev/null || true
+            sleep 1
+            xcrun simctl launch "$udid" "$BUNDLE_ID" -demo "$1" ${2:-}
+            sleep 7
+            xcrun simctl io "$udid" screenshot "shots/$3.png"
+          }
+          shoot list -unlocked list-unlocked
+          shoot detail -unlocked detail
+          shoot settings -unlocked settings
+          shoot editor -unlocked editor
+          shoot list "" list-free
+          shoot paywall "" paywall
+          # A plain launch, no -demo: this is what a brand new install looks like,
+          # so it proves the seeded example dates really appear on device.
+          xcrun simctl terminate "$udid" "$BUNDLE_ID" 2>/dev/null || true
+          xcrun simctl uninstall "$udid" "$BUNDLE_ID"
+          xcrun simctl install "$udid" "build/sim/Build/Products/Debug-iphonesimulator/${SCHEME}.app"
+          xcrun simctl launch "$udid" "$BUNDLE_ID"
+          sleep 8
+          xcrun simctl io "$udid" screenshot "shots/first-launch.png"
+          ls -la shots
+          sips -g pixelWidth -g pixelHeight shots/*.png
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: shots/

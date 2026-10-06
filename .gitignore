@@ -1,0 +1,9 @@
+*.xcodeproj/
+build/
+DerivedData/
+.DS_Store
+*.p8
+store/raw/
+store/__pycache__/
+store/
+docs/
