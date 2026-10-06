@@ -8,7 +8,7 @@ private struct StoreFile: Codable {
 
 @MainActor
 final class OccasionStore: ObservableObject {
-    static let freeLimit: Int = 3
+    static let freeLimit: Int = 10
 
     @Published private(set) var occasions: [Occasion] = []
     let fileURL: URL
@@ -52,6 +52,10 @@ final class OccasionStore: ObservableObject {
         return occasions.filter { !$0.isSeededSample }.count
     }
 
+    var hasSamples: Bool {
+        return occasions.contains { $0.isSeededSample }
+    }
+
     func canAddMore(isUnlocked: Bool) -> Bool {
         return isUnlocked || userDateCount < OccasionStore.freeLimit
     }
@@ -79,6 +83,11 @@ final class OccasionStore: ObservableObject {
 
     func delete(id: UUID) {
         occasions.removeAll { $0.id == id }
+        save()
+    }
+
+    func removeSamples() {
+        occasions.removeAll { $0.isSeededSample }
         save()
     }
 

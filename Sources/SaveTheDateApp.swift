@@ -12,6 +12,10 @@ struct SaveTheDateApp: App {
         fallbackPrice: DemoMode.demoPrice()
     )
 
+    init() {
+        NotificationTapRouter.shared.install()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

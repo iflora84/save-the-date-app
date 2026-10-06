@@ -14,6 +14,8 @@ struct OccasionListView: View {
     @Environment(\.openURL) private var openURL
     @AppStorage(AppDefaults.reminderHourKey) private var defaultReminderHour: Int = AppDefaults.defaultReminderHour
     @AppStorage(AppDefaults.reminderMinuteKey) private var defaultReminderMinute: Int = AppDefaults.defaultReminderMinute
+    @AppStorage(AppDefaults.keepsSamplesKey) private var keepsSamples: Bool = false
+    @ObservedObject private var tapRouter: NotificationTapRouter = NotificationTapRouter.shared
 
     @State private var path: [UUID] = []
     @State private var activeSheet: ListSheet? = nil
@@ -69,6 +71,9 @@ struct OccasionListView: View {
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { today = Date() }
             }
+            .onChange(of: tapRouter.openedOccasionID, initial: true) { _, id in
+                openTappedReminder(id)
+            }
         }
     }
 
@@ -89,6 +94,9 @@ struct OccasionListView: View {
         return List {
             ForEach(sortedItems) { occasion in
                 row(occasion, isHero: occasion.id == heroID)
+            }
+            if store.hasSamples && store.userDateCount > 0 && !keepsSamples {
+                examplesRow
             }
             if !store.occasions.isEmpty && !scheduler.isAuthorized && !DemoMode.isActive {
                 notificationsRow
@@ -135,6 +143,31 @@ struct OccasionListView: View {
                 Button("Turn on") { requestNotificationsAndReschedule() }
                     .buttonStyle(PillButtonStyle(.primary))
             }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+    }
+
+    // Offered once the user has a date of their own, so the examples have done their job.
+    private var examplesRow: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Your own dates are in")
+                .font(Theme.font(17, weight: .heavy))
+            Text("Remove the examples so only your dates are left?")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Button("Remove examples") {
+                withAnimation(Theme.spring) { store.removeSamples() }
+            }
+            .buttonStyle(PillButtonStyle(.primary))
+            Button("Keep them") { keepsSamples = true }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -203,6 +236,16 @@ struct OccasionListView: View {
         Task {
             let ok = await scheduler.requestPermission()
             if ok { await scheduler.reschedule(store.occasions) }
+        }
+    }
+
+    // Any open sheet stays put, so a half-typed date is not thrown away. The date
+    // is waiting underneath when the sheet closes.
+    private func openTappedReminder(_ id: UUID?) {
+        guard let id = id else { return }
+        tapRouter.openedOccasionID = nil
+        if store.occasion(withID: id) != nil {
+            path = [id]
         }
     }
 
@@ -340,8 +383,14 @@ struct OccasionCardView: View {
 
     private var heroContent: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(occasion.displayEmoji)
-                .font(.system(size: 72))
+            HStack(alignment: .top) {
+                Text(occasion.displayEmoji)
+                    .font(.system(size: 72))
+                Spacer()
+                if occasion.isSeededSample {
+                    ExampleBadge()
+                }
+            }
             Text(OccasionMath.countdownText(days: days))
                 .font(Theme.font(34, weight: .heavy))
                 .lineLimit(2)
@@ -362,6 +411,10 @@ struct OccasionCardView: View {
                 .frame(width: 60, height: 60)
                 .background(Color.white.opacity(0.22), in: Circle())
             VStack(alignment: .leading, spacing: 2) {
+                if occasion.isSeededSample {
+                    ExampleBadge()
+                        .padding(.bottom, 2)
+                }
                 Text(occasion.name)
                     .font(Theme.font(19, weight: .heavy))
                 Text(dateLine)
@@ -386,5 +439,18 @@ struct OccasionCardView: View {
                     .font(Theme.font(12, weight: .semibold))
             }
         }
+    }
+}
+
+private struct ExampleBadge: View {
+    var body: some View {
+        Text("EXAMPLE")
+            .font(Theme.font(10, weight: .heavy))
+            .tracking(0.6)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color.black.opacity(0.28), in: Capsule())
+            .fixedSize()
+            .accessibilityLabel("Example")
     }
 }

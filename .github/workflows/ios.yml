@@ -1,8 +1,11 @@
 # Generates the Xcode project with XcodeGen, runs the unit tests on a
 # simulator, archives unsigned, then signs with Xcode cloud signing through
-# the App Store Connect API key and uploads to TestFlight (master only).
+# the App Store Connect API key and uploads to TestFlight.
 #
-# Secrets: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (contents of the .p8).
+# The public repo (iflora84/save-the-date-app) only tests and archives; it holds
+# no secrets. Uploads run on the private repo (iflora84/save-the-date), whose
+# run numbers continue the build numbers already on App Store Connect.
+# Secrets there: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (contents of the .p8).
 name: iOS
 
 on:
@@ -64,7 +67,7 @@ jobs:
           grep -q "\*\* ARCHIVE SUCCEEDED \*\*" build/archive.log
 
       - name: App Store Connect API key
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.repository == 'iflora84/save-the-date'
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
@@ -74,7 +77,7 @@ jobs:
           chmod 600 "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
 
       - name: Upload to TestFlight
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.repository == 'iflora84/save-the-date'
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}

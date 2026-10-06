@@ -71,22 +71,29 @@ struct OccasionDetailView: View {
         }
     }
 
+    /// The same plan the scheduler hands to iOS, so the dates shown here are the
+    /// dates the reminders actually arrive.
     private func remindersCard(_ occasion: Occasion) -> some View {
-        let offsets = occasion.reminderOffsets.sorted(by: >)
-        let timeLabel = OccasionMath.timeText(hour: occasion.reminderHour, minute: occasion.reminderMinute)
+        let upcoming = ReminderPlan.notifications(for: occasion, now: Date(), calendar: .current)
+        let willArrive = scheduler.isAuthorized || DemoMode.isActive
         return VStack(alignment: .leading, spacing: 12) {
-            Text("Reminders")
+            Text("Next reminders")
                 .font(Theme.font(17, weight: .heavy))
-            if offsets.isEmpty {
+            if upcoming.isEmpty {
                 Text("No reminders — tap Edit to add some")
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(offsets, id: \.self) { offset in
-                    HStack {
-                        Label(OccasionMath.offsetLabel(offset), systemImage: "bell.fill")
-                        Spacer()
-                        Text(timeLabel)
-                            .foregroundStyle(.secondary)
+                ForEach(upcoming, id: \.identifier) { item in
+                    HStack(spacing: 12) {
+                        Image(systemName: willArrive ? "bell.fill" : "bell.slash")
+                            .foregroundStyle(willArrive ? Theme.accent : Color.secondary)
+                            .frame(width: 24)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(fireText(item.fireDate))
+                            Text(OccasionMath.offsetLabel(item.offset))
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
@@ -94,6 +101,14 @@ struct OccasionDetailView: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+    }
+
+    private func fireText(_ date: Date) -> String {
+        var style = Date.FormatStyle.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute()
+        if !Calendar.current.isDate(date, equalTo: Date(), toGranularity: .year) {
+            style = style.year()
+        }
+        return date.formatted(style)
     }
 
     private func noteCard(_ occasion: Occasion) -> some View {

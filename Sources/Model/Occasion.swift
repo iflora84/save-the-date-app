@@ -115,6 +115,7 @@ enum AppDefaults {
     static let reminderMinuteKey: String = "defaultReminderMinute"
     static let isUnlockedKey: String = "isUnlocked"
     static let hasSeededSamplesKey: String = "hasSeededSamples"
+    static let keepsSamplesKey: String = "keepsSamples"
     static let defaultReminderHour: Int = 9
     static let defaultReminderMinute: Int = 0
 }

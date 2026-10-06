@@ -90,12 +90,13 @@ final class OccasionStoreTests: XCTestCase {
 
     func testFreeLimit() {
         let store = OccasionStore(directory: makeDirectory())
-        store.add(makeOccasion(name: "A", month: 1, day: 1))
-        store.add(makeOccasion(name: "B", month: 2, day: 2))
+        for index in 1..<OccasionStore.freeLimit {
+            store.add(makeOccasion(name: "Date \(index)", month: 1, day: index))
+        }
         XCTAssertEqual(store.remainingFreeSlots(), 1)
         XCTAssertTrue(store.canAddMore(isUnlocked: false))
 
-        store.add(makeOccasion(name: "C", month: 3, day: 3))
+        store.add(makeOccasion(name: "Last", month: 2, day: 1))
         XCTAssertFalse(store.canAddMore(isUnlocked: false))
         XCTAssertTrue(store.canAddMore(isUnlocked: true))
         XCTAssertEqual(store.remainingFreeSlots(), 0)
@@ -140,7 +141,7 @@ final class OccasionStoreTests: XCTestCase {
         XCTAssertEqual(first.occasions.count, 3)
         XCTAssertTrue(first.occasions.allSatisfy { $0.isSeededSample })
         XCTAssertEqual(first.userDateCount, 0)
-        XCTAssertEqual(first.remainingFreeSlots(), 3)
+        XCTAssertEqual(first.remainingFreeSlots(), OccasionStore.freeLimit)
         XCTAssertTrue(first.canAddMore(isUnlocked: false))
 
         first.delete(id: try XCTUnwrap(first.occasions.first).id)
@@ -162,6 +163,18 @@ final class OccasionStoreTests: XCTestCase {
         sample.isSample = nil
         store.update(sample)
         XCTAssertEqual(store.userDateCount, 1)
-        XCTAssertEqual(store.remainingFreeSlots(), 2)
+        XCTAssertEqual(store.remainingFreeSlots(), OccasionStore.freeLimit - 1)
+    }
+
+    func testRemoveSamplesKeepsTheUsersOwnDates() throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "remove-\(UUID().uuidString)"))
+        let store = OccasionStore(directory: makeDirectory(), seedSamplesIfNew: true, defaults: defaults)
+        let mom = makeOccasion(name: "Mom", month: 3, day: 14)
+        store.add(mom)
+        XCTAssertTrue(store.hasSamples)
+
+        store.removeSamples()
+        XCTAssertFalse(store.hasSamples)
+        XCTAssertEqual(store.occasions, [mom])
     }
 }
