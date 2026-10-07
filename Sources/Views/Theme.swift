@@ -219,13 +219,14 @@ struct GradientCard<Content: View>: View {
     }
 }
 
-/// Dark is the default look; some people prefer a light app, so Settings offers it.
+/// Light is the default; Settings also offers dark and following the iPhone.
 enum AppAppearance: String, CaseIterable, Identifiable {
     case dark
     case light
     case system
 
     static let storageKey: String = "appearance"
+    static let defaultChoice: AppAppearance = .light
 
     var id: String { return rawValue }
 

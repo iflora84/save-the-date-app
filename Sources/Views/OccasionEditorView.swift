@@ -16,8 +16,11 @@ struct OccasionEditorView: View {
     @State private var customDays: Int = 10
     @State private var emojiText: String = ""
     @State private var photoItem: PhotosPickerItem? = nil
-    /// Picked but not yet written; it only reaches disk on Save.
+    /// Framed in the cropper but not yet written; both reach disk only on Save.
     @State private var pendingPhoto: UIImage? = nil
+    /// A newly picked whole photo. Nil keeps the one already saved.
+    @State private var pendingFull: UIImage? = nil
+    @State private var cropRequest: CropRequest? = nil
     @FocusState private var customFocused: Bool
 
     init(editing occasion: Occasion?, defaultReminderHour: Int, defaultReminderMinute: Int, onSave: @escaping (Occasion) -> Void) {
@@ -90,6 +93,14 @@ struct OccasionEditorView: View {
             .onChange(of: photoItem) { _, item in
                 Task { await loadPhoto(item) }
             }
+            .fullScreenCover(item: $cropRequest) { request in
+                PhotoCropView(image: request.image) { cropped in
+                    pendingPhoto = cropped
+                    if request.isNewPhoto {
+                        pendingFull = request.image
+                    }
+                }
+            }
             .navigationTitle(isNew ? "New date" : "Edit date")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -141,6 +152,8 @@ struct OccasionEditorView: View {
                     }
                     .buttonStyle(.borderless)
                     if hasPhoto {
+                        Button("Adjust") { adjustPhoto() }
+                            .buttonStyle(.borderless)
                         Button("Remove photo", role: .destructive) { removePhoto() }
                             .buttonStyle(.borderless)
                     }
@@ -317,28 +330,30 @@ struct OccasionEditorView: View {
               let image = UIImage(data: data) else {
             return
         }
-        pendingPhoto = OccasionEditorView.downscaled(image, maxSide: 720)
+        // Cleared so picking the same photo again still fires onChange.
+        photoItem = nil
+        cropRequest = CropRequest(image: PhotoSizing.downscaled(image, maxSide: PhotoSizing.fullMaxSide), isNewPhoto: true)
+    }
+
+    /// Re-frame from the whole photo: the one just picked, else the saved one.
+    /// Dates saved before full photos were kept can only zoom into their square.
+    private func adjustPhoto() {
+        if let full = pendingFull {
+            cropRequest = CropRequest(image: full, isNewPhoto: true)
+            return
+        }
+        guard let url = store.fullPhotoURL(for: draft), let saved = UIImage(contentsOfFile: url.path) else {
+            return
+        }
+        cropRequest = CropRequest(image: saved, isNewPhoto: false)
     }
 
     private func removePhoto() {
         pendingPhoto = nil
+        pendingFull = nil
         photoItem = nil
         draft.photoFileName = nil
-    }
-
-    /// Cards show the photo at most ~100pt wide, so 720px keeps it sharp and the file small.
-    private static func downscaled(_ image: UIImage, maxSide: CGFloat) -> UIImage {
-        let longest = max(image.size.width, image.size.height)
-        if longest <= maxSide {
-            return image
-        }
-        let scale = maxSide / longest
-        let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
-            image.draw(in: CGRect(origin: .zero, size: size))
-        }
+        draft.photoFullFileName = nil
     }
 
     private func save() {
@@ -356,7 +371,20 @@ struct OccasionEditorView: View {
            let name = store.savePhoto(data) {
             draft.photoFileName = name
         }
+        if let full = pendingFull,
+           let data = full.jpegData(compressionQuality: 0.85),
+           let name = store.savePhoto(data) {
+            draft.photoFullFileName = name
+        }
         onSave(draft)
         dismiss()
     }
+}
+
+/// What the cropper is opened with. `isNewPhoto` says whether its image should be
+/// saved as the date's whole photo once framed.
+private struct CropRequest: Identifiable {
+    let id: UUID = UUID()
+    let image: UIImage
+    let isNewPhoto: Bool
 }

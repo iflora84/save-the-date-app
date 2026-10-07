@@ -431,13 +431,16 @@ struct OccasionCardView: View {
 
     /// Only the first upcoming date on the list is "next"; Detail shows any date as a hero.
     let isNext: Bool
+    /// Set by Detail so tapping the portrait opens it full screen.
+    let onPhotoTap: (() -> Void)?
 
-    init(occasion: Occasion, today: Date, calendar: Calendar = .current, style: Style, isNext: Bool = false) {
+    init(occasion: Occasion, today: Date, calendar: Calendar = .current, style: Style, isNext: Bool = false, onPhotoTap: (() -> Void)? = nil) {
         self.occasion = occasion
         self.today = today
         self.calendar = calendar
         self.style = style
         self.isNext = isNext
+        self.onPhotoTap = onPhotoTap
     }
 
     private var days: Int {
@@ -523,12 +526,23 @@ struct OccasionCardView: View {
     }
 
     // A thin gold ring around the portrait (or emoji), set slightly apart from it.
-    private var heroArt: some View {
-        OccasionAvatar(occasion: occasion, size: 60, emojiSize: 34)
+    @ViewBuilder private var heroArt: some View {
+        let art = OccasionAvatar(occasion: occasion, size: 60, emojiSize: 34)
             .padding(4)
             .overlay {
                 Circle().stroke(Theme.goldLine, lineWidth: 1.5)
             }
+        if let onPhotoTap = onPhotoTap, occasion.photoFileName != nil {
+            Button {
+                onPhotoTap()
+            } label: {
+                art
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("View photo")
+        } else {
+            art
+        }
     }
 
     private var compactContent: some View {

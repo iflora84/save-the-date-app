@@ -9,7 +9,7 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
     @AppStorage(AppDefaults.reminderHourKey) private var defaultReminderHour: Int = AppDefaults.defaultReminderHour
     @AppStorage(AppDefaults.reminderMinuteKey) private var defaultReminderMinute: Int = AppDefaults.defaultReminderMinute
-    @AppStorage(AppAppearance.storageKey) private var appearance: String = AppAppearance.dark.rawValue
+    @AppStorage(AppAppearance.storageKey) private var appearance: String = AppAppearance.defaultChoice.rawValue
     @State private var showImport: Bool = false
     @State private var showPaywall: Bool = false
     @State private var restoreMessage: String? = nil

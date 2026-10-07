@@ -73,6 +73,12 @@ final class OccasionStore: ObservableObject {
         return photosDirectory.appendingPathComponent(name, isDirectory: false)
     }
 
+    /// The whole photo when there is one, otherwise the card square.
+    func fullPhotoURL(for occasion: Occasion) -> URL? {
+        guard let name = occasion.photoFullFileName ?? occasion.photoFileName else { return nil }
+        return photosDirectory.appendingPathComponent(name, isDirectory: false)
+    }
+
     /// Writes the image and returns the file name to put on the occasion. Each save
     /// gets a new name, so a cancelled edit never touches the photo in use.
     func savePhoto(_ jpegData: Data) -> String? {
@@ -108,6 +114,7 @@ final class OccasionStore: ObservableObject {
     func delete(id: UUID) {
         if let gone = occasion(withID: id) {
             removePhotoFile(named: gone.photoFileName)
+            removePhotoFile(named: gone.photoFullFileName)
         }
         occasions.removeAll { $0.id == id }
         save()
@@ -144,6 +151,9 @@ final class OccasionStore: ObservableObject {
     private func removePhotoIfReplaced(_ old: Occasion, by new: Occasion) {
         if old.photoFileName != new.photoFileName {
             removePhotoFile(named: old.photoFileName)
+        }
+        if old.photoFullFileName != new.photoFullFileName {
+            removePhotoFile(named: old.photoFullFileName)
         }
     }
 
