@@ -70,7 +70,7 @@ struct ContentView: View {
     }
 
     @ViewBuilder private var demoCrop: some View {
-        let url = store.photosDirectory.appendingPathComponent("mum-full.jpg", isDirectory: false)
+        let url = store.photosDirectory.appendingPathComponent("couple-full.jpg", isDirectory: false)
         if let image = UIImage(contentsOfFile: url.path) {
             PhotoCropView(image: image, onDone: { _ in })
         } else {
