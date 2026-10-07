@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 enum ListSheet: String, Identifiable {
-    case editor, settings, importContacts, importCalendar, paywall, addChooser, pasteText, screenshot
+    case editor, settings, importContacts, importCalendar, paywall, addChooser, pasteText, screenshot, shared
     var id: String { return rawValue }
 }
 
@@ -24,6 +24,8 @@ struct OccasionListView: View {
     @State private var nextSheet: ListSheet? = nil
     /// A date found in pasted text or a screenshot, for the editor to start from.
     @State private var editorPrefill: Occasion? = nil
+    /// What arrived through "Share > Save the Date" while the app was closed.
+    @State private var sharedItem: SharedInbox.Item? = nil
     @State private var pendingDelete: Occasion? = nil
     @State private var today: Date = Date()
     @State private var confettiTrigger: Int = 0
@@ -81,9 +83,13 @@ struct OccasionListView: View {
             .onAppear {
                 today = Date()
                 celebrateIfToday()
+                openSharedItem()
             }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .active { today = Date() }
+                if phase == .active {
+                    today = Date()
+                    openSharedItem()
+                }
             }
             .onChange(of: tapRouter.openedOccasionID, initial: true) { _, id in
                 openTappedReminder(id)
@@ -341,9 +347,18 @@ struct OccasionListView: View {
         if pendingAdd {
             pendingAdd = false
             if purchases.isUnlocked {
-                activeSheet = .addChooser
+                activeSheet = editorPrefill == nil ? .addChooser : .editor
             }
         }
+    }
+
+    /// One shared item per opening, and never on top of a sheet the user is in;
+    /// anything left waits in the inbox for the next time.
+    private func openSharedItem() {
+        if activeSheet != nil || DemoMode.isActive { return }
+        guard let inbox = SharedInbox.directory, let item = SharedInbox.takeOldest(from: inbox) else { return }
+        sharedItem = item
+        activeSheet = .shared
     }
 
     private func chose(_ method: AddMethod) {
@@ -365,7 +380,13 @@ struct OccasionListView: View {
             reminderHour: defaultReminderHour,
             reminderMinute: defaultReminderMinute
         )
-        nextSheet = .editor
+        // A shared item can arrive when the free dates are used up.
+        if store.canAddMore(isUnlocked: purchases.isUnlocked) {
+            nextSheet = .editor
+        } else {
+            pendingAdd = true
+            nextSheet = .paywall
+        }
     }
 
     @ViewBuilder private func sheetContent(_ sheet: ListSheet) -> some View {
@@ -384,6 +405,8 @@ struct OccasionListView: View {
             TextImportView(source: .paste, onPick: { found in picked(found) })
         case .screenshot:
             TextImportView(source: .screenshot, onPick: { found in picked(found) })
+        case .shared:
+            sharedImportView
         case .settings:
             SettingsView()
         case .importContacts:
@@ -402,6 +425,17 @@ struct OccasionListView: View {
             })
         case .paywall:
             PaywallView()
+        }
+    }
+
+    @ViewBuilder private var sharedImportView: some View {
+        switch sharedItem {
+        case .image(let data):
+            TextImportView(source: .screenshot, sharedImage: UIImage(data: data), onPick: { found in picked(found) })
+        case .text(let text):
+            TextImportView(source: .paste, sharedText: text, onPick: { found in picked(found) })
+        case nil:
+            EmptyView()
         }
     }
 

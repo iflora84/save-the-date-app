@@ -76,6 +76,18 @@ jobs:
           grep -qx LC_LOAD_WEAK_DYLIB linkage.txt
           ! grep -qx LC_LOAD_DYLIB linkage.txt
 
+      # The share extension must be embedded, and Apple rejects a bundle whose
+      # privacy manifest is missing (ITMS-91053), so check both before upload.
+      - name: Share extension and privacy manifests are in the app
+        if: github.event_name != 'pull_request'
+        run: |
+          app="build/${SCHEME}.xcarchive/Products/Applications/${SCHEME}.app"
+          test -d "$app/PlugIns/SaveTheDateShare.appex"
+          test -f "$app/PrivacyInfo.xcprivacy"
+          test -f "$app/PlugIns/SaveTheDateShare.appex/PrivacyInfo.xcprivacy"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$app/Info.plist"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$app/PlugIns/SaveTheDateShare.appex/Info.plist"
+
       - name: App Store Connect API key
         if: github.event_name != 'pull_request' && github.repository == 'iflora84/save-the-date'
         env:

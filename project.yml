@@ -17,11 +17,18 @@ targets:
   SaveTheDate:
     type: application
     platform: iOS
-    sources: [Sources]
+    sources: [Sources, Shared]
     dependencies:
       # iOS 26 only; weak so the app still launches on iOS 17-25.
       - sdk: FoundationModels.framework
         weak: true
+      - target: SaveTheDateShare
+    # The group is ticked on both App IDs in the developer portal; an unsigned
+    # archive carries no entitlements, so export signing takes them from there.
+    entitlements:
+      path: Sources/SaveTheDate.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.iflora.savethedate]
     settings:
       base:
         OTHER_LDFLAGS: ["$(inherited)", "-weak_framework", "FoundationModels"]
@@ -40,6 +47,39 @@ targets:
         NSContactsUsageDescription: Save the Date reads birthdays and anniversaries from your contacts so you can add them with one tap. Nothing is changed or uploaded.
     scheme:
       testTargets: [SaveTheDateTests]
+
+  # "Share > Save the Date" from Mail, Messages, Photos, Safari. It only drops
+  # the shared text or image into the App Group inbox; the app reads it next
+  # time it opens, with the same finder as Paste text / From a screenshot.
+  SaveTheDateShare:
+    type: app-extension
+    platform: iOS
+    sources: [ShareExtension, Shared]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.iflora.savethedate.share
+        TARGETED_DEVICE_FAMILY: "1"
+        SKIP_INSTALL: YES
+    entitlements:
+      path: ShareExtension/SaveTheDateShare.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.iflora.savethedate]
+    info:
+      path: ShareExtension/Info.plist
+      properties:
+        CFBundleDisplayName: Save the Date
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsText: true
+              NSExtensionActivationSupportsImageWithMaxCount: 1
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+    dependencies:
+      - sdk: SwiftUI.framework
   SaveTheDateTests:
     type: bundle.unit-test
     platform: iOS
