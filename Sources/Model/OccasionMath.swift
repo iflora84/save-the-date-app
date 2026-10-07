@@ -41,10 +41,16 @@ enum OccasionMath {
         return occurrence(month: month, day: day, year: currentYear + 1, calendar: calendar) ?? todayStart
     }
 
+    /// For a one-time date this is its only occurrence, which may be in the past.
     static func nextOccurrence(of occasion: Occasion, from today: Date, calendar: Calendar) -> Date {
+        if occasion.isOneTime, let year = occasion.year,
+           let only = occurrence(month: occasion.month, day: occasion.day, year: year, calendar: calendar) {
+            return only
+        }
         return nextOccurrence(month: occasion.month, day: occasion.day, from: today, calendar: calendar)
     }
 
+    /// Negative once a one-time date has passed. Yearly dates never go below 0.
     static func daysUntil(_ occasion: Occasion, from today: Date, calendar: Calendar) -> Int {
         let todayStart = calendar.startOfDay(for: today)
         let next = nextOccurrence(of: occasion, from: today, calendar: calendar)
@@ -93,6 +99,12 @@ enum OccasionMath {
     }
 
     static func countdownText(days: Int) -> String {
+        if days == -1 {
+            return "Yesterday"
+        }
+        if days < 0 {
+            return "\(-days) days ago"
+        }
         if days == 0 {
             return "It's today!!"
         }

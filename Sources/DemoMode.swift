@@ -40,7 +40,7 @@ enum DemoMode {
         var seeded: [Occasion] = []
         for sample in samples(unlocked: isUnlocked) {
             guard let date = calendar.date(byAdding: .day, value: sample.inDays, to: now) else { continue }
-            let parts = calendar.dateComponents([.month, .day], from: date)
+            let parts = calendar.dateComponents([.year, .month, .day], from: date)
             guard let month = parts.month, let day = parts.day else { continue }
             seeded.append(Occasion(
                 name: sample.name,
@@ -48,10 +48,11 @@ enum DemoMode {
                 emoji: sample.emoji,
                 month: month,
                 day: day,
-                year: sample.year,
+                year: sample.oneTime ? parts.year : sample.year,
                 reminderOffsets: sample.offsets,
                 note: sample.note,
-                palette: sample.palette
+                palette: sample.palette,
+                oneTime: sample.oneTime ? true : nil
             ))
         }
         return seeded
@@ -66,6 +67,7 @@ enum DemoMode {
         let offsets: [Int]
         let note: String
         let palette: OccasionPalette
+        var oneTime: Bool = false
     }
 
     private static func samples(unlocked: Bool) -> [Sample] {
@@ -75,7 +77,7 @@ enum DemoMode {
             Sample(name: "Alex & Sam", kind: .anniversary, emoji: nil, inDays: 1, year: 2019,
                    offsets: [14, 1], note: "", palette: .berry),
             Sample(name: "Kyoto trip", kind: .custom, emoji: "✈️", inDays: 12, year: nil,
-                   offsets: [30, 7, 1], note: "Flights booked.", palette: .ocean)
+                   offsets: [30, 7, 1], note: "Flights booked.", palette: .ocean, oneTime: true)
         ]
         if !unlocked {
             return free

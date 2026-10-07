@@ -49,7 +49,9 @@ enum ReminderPlan {
                 fire = fireDate(for: second, offset: offset, occasion: occasion, calendar: calendar)
             }
             var cycle = 0
-            while cycle < max(1, cycles) {
+            // A one-time date has no next year to plan for.
+            let cycleCount = occasion.isOneTime ? 1 : max(1, cycles)
+            while cycle < cycleCount {
                 guard let fireInstant = fire, fireInstant > now else {
                     break
                 }

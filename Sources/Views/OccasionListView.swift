@@ -90,9 +90,11 @@ struct OccasionListView: View {
 
     private var list: some View {
         let sortedItems = items
-        let heroID = sortedItems.first?.id
+        let upcoming = sortedItems.filter { !isPast($0) }
+        let past = sortedItems.filter { isPast($0) }
+        let heroID = upcoming.first?.id
         return List {
-            ForEach(sortedItems) { occasion in
+            ForEach(upcoming) { occasion in
                 row(occasion, isHero: occasion.id == heroID)
             }
             if store.hasSamples && store.userDateCount > 0 && !keepsSamples {
@@ -105,9 +107,30 @@ struct OccasionListView: View {
                 freeSlotsRow
             }
             importRow
+            if !past.isEmpty {
+                pastHeader
+                ForEach(past) { occasion in
+                    row(occasion, isHero: false)
+                        .opacity(0.6)
+                }
+            }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+    }
+
+    private func isPast(_ occasion: Occasion) -> Bool {
+        return OccasionMath.daysUntil(occasion, from: today, calendar: .current) < 0
+    }
+
+    private var pastHeader: some View {
+        Text("Past")
+            .font(Theme.font(20, weight: .heavy))
+            .foregroundStyle(.secondary)
+            .padding(.top, 12)
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 0, trailing: 16))
     }
 
     private func row(_ occasion: Occasion, isHero: Bool) -> some View {
@@ -436,15 +459,20 @@ struct OccasionCardView: View {
         .shadow(color: Color.black.opacity(0.15), radius: 2, x: 0, y: 1)
     }
 
+    private var dayUnit: String {
+        let unit = abs(days) == 1 ? "day" : "days"
+        return days < 0 ? unit + " ago" : unit
+    }
+
     @ViewBuilder private var compactTrailing: some View {
         VStack(spacing: 0) {
             if days == 0 {
                 Text("Today!!")
                     .font(Theme.font(20, weight: .heavy))
             } else {
-                Text(String(days))
+                Text(String(abs(days)))
                     .font(Theme.font(30, weight: .heavy))
-                Text(days == 1 ? "day" : "days")
+                Text(dayUnit)
                     .font(Theme.font(12, weight: .semibold))
             }
         }
