@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import StoreKit
 
 /// What the list shows in its sheet. Data a sheet needs travels inside the case:
 /// a sheet's content is built from the list's last render, so a separate @State
@@ -40,6 +41,7 @@ struct OccasionListView: View {
     @EnvironmentObject private var purchases: PurchaseManager
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
+    @Environment(\.requestReview) private var requestReview
     @AppStorage(AppDefaults.reminderHourKey) private var defaultReminderHour: Int = AppDefaults.defaultReminderHour
     @AppStorage(AppDefaults.reminderMinuteKey) private var defaultReminderMinute: Int = AppDefaults.defaultReminderMinute
     @AppStorage(AppDefaults.keepsSamplesKey) private var keepsSamples: Bool = false
@@ -477,6 +479,13 @@ struct OccasionListView: View {
             try? await Task.sleep(nanoseconds: 1_600_000_000)
             let granted = await scheduler.requestPermission()
             if granted { await scheduler.reschedule(store.occasions) }
+            // Saving a third date of their own means the app is in use; ask once,
+            // after the notification prompt has had its turn.
+            if store.userDateCount == ReviewPrompt.minimumOwnDates && ReviewPrompt.shouldAsk(ownDates: store.userDateCount) {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                ReviewPrompt.markAsked()
+                requestReview()
+            }
         }
     }
 

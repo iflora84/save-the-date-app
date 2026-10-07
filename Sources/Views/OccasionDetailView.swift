@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import StoreKit
 
 struct OccasionDetailView: View {
     let occasionID: UUID
@@ -7,6 +8,7 @@ struct OccasionDetailView: View {
     @EnvironmentObject private var scheduler: NotificationScheduler
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @Environment(\.requestReview) private var requestReview
     @State private var showEditor: Bool = false
     @State private var showDeleteConfirm: Bool = false
     @State private var confettiTrigger: Int = 0
@@ -74,6 +76,12 @@ struct OccasionDetailView: View {
                 Task {
                     try? await Task.sleep(nanoseconds: 300_000_000)
                     confettiTrigger += 1
+                    // The day itself is the happiest moment the app has.
+                    if ReviewPrompt.shouldAsk(ownDates: store.userDateCount) {
+                        try? await Task.sleep(nanoseconds: 2_000_000_000)
+                        ReviewPrompt.markAsked()
+                        requestReview()
+                    }
                 }
             }
         }
