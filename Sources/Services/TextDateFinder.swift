@@ -45,6 +45,15 @@ enum TextDateFinder {
         let usedAI: Bool
     }
 
+    /// A date written in the text, as the system's date detector read it.
+    struct DetectedDate: Equatable {
+        let month: Int
+        let day: Int
+        let year: Int
+        /// The words the date was read from, e.g. "Thursday 4 February 2027".
+        let snippet: String
+    }
+
     /// The on-device model's window is small (about 4K tokens, and CJK text costs
     /// roughly a token per character), so long emails are cut.
     static let maxCharacters: Int = 2000
@@ -54,86 +63,87 @@ enum TextDateFinder {
         "booking", "reservation", "itinerary", "trip", "航班", "酒店", "フライト", "ホテル"
     ]
 
-    /// Apple Intelligence first where the phone has it; otherwise, or when it finds
-    /// nothing, the system's own date detection.
+    /// The dates always come from NSDataDetector, so only dates actually written in
+    /// the text are offered. Apple Intelligence, where the phone has it, only names
+    /// and sorts those dates and may drop ones not worth a countdown; a small model
+    /// asked to find dates itself invents some (build 24: three made-up dates next
+    /// to the one real flight).
     static func find(in text: String, now: Date = Date(), calendar: Calendar = .current) async -> Result {
         let trimmed = String(text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(maxCharacters))
-        if trimmed.isEmpty {
+        let detected = detectDates(in: trimmed, now: now, calendar: calendar)
+        if detected.isEmpty {
             return Result(dates: [], usedAI: false)
         }
         if OnDeviceAI.isAvailable,
-           let reply = await OnDeviceAI.respond(instructions: instructions(today: now, calendar: calendar), prompt: trimmed) {
-            let parsed = parse(reply)
-            if !parsed.isEmpty {
-                return Result(dates: Array(parsed.prefix(maxResults)), usedAI: true)
+           let reply = await OnDeviceAI.respond(instructions: labelInstructions, prompt: labelPrompt(text: trimmed, dates: detected), temperature: 0.1) {
+            let labelled = parseLabels(reply, dates: detected)
+            if !labelled.isEmpty {
+                return Result(dates: labelled, usedAI: true)
             }
         }
-        return Result(dates: detectDates(in: trimmed, now: now, calendar: calendar), usedAI: false)
+        return Result(dates: detected.map { fallbackDate($0, text: trimmed) }, usedAI: false)
     }
 
-    static func instructions(today: Date, calendar: Calendar) -> String {
-        let parts = calendar.dateComponents([.year, .month, .day], from: today)
-        let todayText = String(format: "%04d-%02d-%02d", parts.year ?? 2026, parts.month ?? 1, parts.day ?? 1)
-        return """
-        You find dates worth a countdown in text a person pasted: trips, flights and hotel stays, \
-        events such as weddings, concerts and graduations, and birthdays or anniversaries. \
-        Today is \(todayText); resolve dates without a year to the next one after today. \
-        For a trip use the start date. Ignore payment deadlines, order numbers and times of day. \
-        Answer only with lines in the form kind|name|YYYY-MM-DD|emoji where kind is one of \
-        trip, event, birthday, anniversary and name is a short title of at most four words \
-        in the language of the text. Write nothing else.
-        """
+    static let labelInstructions: String = """
+    You label dates that were found in a message a person pasted. For each numbered date answer \
+    one line: number|kind|name|emoji. kind is trip, event, birthday or anniversary. \
+    If a date is not worth a countdown, such as a booking date, a payment or cancellation deadline \
+    or a check-out day, answer number|skip instead. name is at most four words taken from the \
+    message saying what happens and where or for whom, such as Flight to Osaka or Mia's wedding, \
+    in the language of the message. Only use the numbers given. Write nothing else.
+    """
+
+    static func labelPrompt(text: String, dates: [DetectedDate]) -> String {
+        var lines: [String] = ["Message:", text, "", "Dates:"]
+        for (index, date) in dates.enumerated() {
+            lines.append(String(format: "%d. %04d-%02d-%02d (\"%@\")", index, date.year, date.month, date.day, date.snippet))
+        }
+        return lines.joined(separator: "\n")
     }
 
-    /// Reads the model's lines; anything malformed is skipped.
-    static func parse(_ reply: String) -> [FoundDate] {
+    /// Reads the model's labels for the detected dates. The model never supplies a
+    /// date: an unknown number, an unknown kind or an empty name is skipped.
+    static func parseLabels(_ reply: String, dates: [DetectedDate]) -> [FoundDate] {
         var found: [FoundDate] = []
-        var seen: Set<String> = []
+        var seen: Set<Int> = []
         for rawLine in reply.components(separatedBy: .newlines) {
             let line = rawLine.trimmingCharacters(in: CharacterSet(charactersIn: " -*•\t"))
             let fields = line.components(separatedBy: "|").map { $0.trimmingCharacters(in: .whitespaces) }
-            guard fields.count >= 3 else { continue }
-            let dateParts = fields[2].components(separatedBy: "-").compactMap { Int($0) }
-            guard dateParts.count == 3,
-                  dateParts[0] >= 1900, dateParts[0] <= 2200,
-                  OccasionMath.isValid(month: dateParts[1], day: dateParts[2]) else {
+            guard fields.count >= 2,
+                  let index = Int(fields[0].trimmingCharacters(in: CharacterSet(charactersIn: ". "))),
+                  index >= 0, index < dates.count, !seen.contains(index) else {
                 continue
             }
-            let name = String(fields[1].prefix(40))
+            seen.insert(index)
+            let kind = fields[1].lowercased()
+            if kind == "skip" || fields.count < 3 { continue }
+            let name = String(fields[2].prefix(40))
             if name.isEmpty { continue }
             let emoji = fields.count >= 4 ? firstEmoji(fields[3]) : nil
-            let made: FoundDate
-            switch fields[0].lowercased() {
+            let date = dates[index]
+            switch kind {
             case "trip":
-                made = FoundDate(name: name, kind: .custom, emoji: emoji ?? "✈️", month: dateParts[1], day: dateParts[2], year: dateParts[0], oneTime: true)
+                found.append(FoundDate(name: name, kind: .custom, emoji: emoji ?? "✈️", month: date.month, day: date.day, year: date.year, oneTime: true))
             case "event":
-                made = FoundDate(name: name, kind: .custom, emoji: emoji ?? "🎉", month: dateParts[1], day: dateParts[2], year: dateParts[0], oneTime: true)
+                found.append(FoundDate(name: name, kind: .custom, emoji: emoji ?? "🎉", month: date.month, day: date.day, year: date.year, oneTime: true))
             case "birthday":
-                made = FoundDate(name: name, kind: .birthday, emoji: emoji ?? "🎂", month: dateParts[1], day: dateParts[2], year: nil, oneTime: false)
+                found.append(FoundDate(name: name, kind: .birthday, emoji: emoji ?? "🎂", month: date.month, day: date.day, year: nil, oneTime: false))
             case "anniversary":
-                made = FoundDate(name: name, kind: .anniversary, emoji: emoji ?? "💍", month: dateParts[1], day: dateParts[2], year: nil, oneTime: false)
+                found.append(FoundDate(name: name, kind: .anniversary, emoji: emoji ?? "💍", month: date.month, day: date.day, year: nil, oneTime: false))
             default:
                 continue
             }
-            let key = "\(made.name.lowercased())|\(made.month)|\(made.day)"
-            if seen.contains(key) { continue }
-            seen.insert(key)
-            found.append(made)
         }
         return found
     }
 
-    /// No model: NSDataDetector finds the dates, and the text's own words decide
-    /// between a trip and a plain event.
-    static func detectDates(in text: String, now: Date, calendar: Calendar) -> [FoundDate] {
+    /// Future dates written in the text, earliest mention first, each day once.
+    static func detectDates(in text: String, now: Date, calendar: Calendar) -> [DetectedDate] {
         guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.date.rawValue) else {
             return []
         }
-        let lower = text.lowercased()
-        let isTrip = tripWords.contains { lower.contains($0) }
-        let name = isTrip ? "Trip" : fallbackName(text)
         let todayStart = calendar.startOfDay(for: now)
-        var found: [FoundDate] = []
+        var found: [DetectedDate] = []
         var seenDays: Set<String> = []
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
         for match in detector.matches(in: text, options: [], range: range) {
@@ -143,11 +153,32 @@ enum TextDateFinder {
             let key = "\(year)-\(month)-\(day)"
             if seenDays.contains(key) { continue }
             seenDays.insert(key)
-            found.append(FoundDate(name: name, kind: .custom, emoji: isTrip ? "✈️" : "🎉",
-                                   month: month, day: day, year: year, oneTime: true))
+            let snippet = Range(match.range, in: text).map { String(text[$0]) } ?? ""
+            found.append(DetectedDate(month: month, day: day, year: year, snippet: snippet))
             if found.count >= maxResults { break }
         }
         return found
+    }
+
+    /// Without the model: a trip when the text reads like a booking, named after
+    /// its destination when one follows "to"; otherwise an event named after the
+    /// text's first short line.
+    static func fallbackDate(_ date: DetectedDate, text: String) -> FoundDate {
+        let lower = text.lowercased()
+        let isTrip = tripWords.contains { lower.contains($0) }
+        let name = isTrip ? tripName(text) : fallbackName(text)
+        return FoundDate(name: name, kind: .custom, emoji: isTrip ? "✈️" : "🎉",
+                         month: date.month, day: date.day, year: date.year, oneTime: true)
+    }
+
+    private static func tripName(_ text: String) -> String {
+        let pattern = "\\bto\\s+([A-Z][\\p{L}-]+(?:\\s[A-Z][\\p{L}-]+)?)"
+        if let regex = try? NSRegularExpression(pattern: pattern),
+           let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..<text.endIndex, in: text)),
+           let range = Range(match.range(at: 1), in: text) {
+            return "Trip to " + text[range]
+        }
+        return "Trip"
     }
 
     /// The first short line of the text, which is usually a subject or a title.
