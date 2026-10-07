@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 enum ListSheet: String, Identifiable {
-    case editor, settings, importContacts, paywall
+    case editor, settings, importContacts, importCalendar, paywall
     var id: String { return rawValue }
 }
 
@@ -106,6 +106,7 @@ struct OccasionListView: View {
             if !purchases.isUnlocked {
                 freeSlotsRow
             }
+            calendarRow
             importRow
             if !past.isEmpty {
                 pastHeader
@@ -217,6 +218,18 @@ struct OccasionListView: View {
         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
     }
 
+    private var calendarRow: some View {
+        Button {
+            activeSheet = .importCalendar
+        } label: {
+            Label("Find dates in Calendar", systemImage: OnDeviceAI.isAvailable ? "sparkles" : "calendar.badge.plus")
+        }
+        .buttonStyle(PillButtonStyle(.secondary))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+    }
+
     private var importRow: some View {
         Button {
             activeSheet = .importContacts
@@ -303,6 +316,13 @@ struct OccasionListView: View {
             SettingsView()
         case .importContacts:
             ContactsImportView(onImported: { count in
+                if count > 0 {
+                    fireConfetti()
+                    requestNotificationsAndReschedule()
+                }
+            })
+        case .importCalendar:
+            CalendarImportView(onImported: { count in
                 if count > 0 {
                     fireConfetti()
                     requestNotificationsAndReschedule()
