@@ -86,6 +86,7 @@ struct OccasionEditorView: View {
                 noteSection
             }
             .scrollDismissesKeyboard(.interactively)
+            .themedFormBackground()
             .onChange(of: photoItem) { _, item in
                 Task { await loadPhoto(item) }
             }

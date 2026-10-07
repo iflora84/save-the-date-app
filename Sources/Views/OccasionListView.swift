@@ -152,7 +152,7 @@ struct OccasionListView: View {
 
     private var pastHeader: some View {
         Text("Past")
-            .font(Theme.font(20, weight: .heavy))
+            .font(Theme.display(22, weight: .semibold))
             .foregroundStyle(.secondary)
             .padding(.top, 12)
             .listRowBackground(Color.clear)
@@ -182,7 +182,7 @@ struct OccasionListView: View {
     @ViewBuilder private var notificationsRow: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Reminders are off")
-                .font(Theme.font(17, weight: .heavy))
+                .font(Theme.display(20, weight: .semibold))
             Text("Turn on notifications so you never miss a day.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -206,7 +206,7 @@ struct OccasionListView: View {
     private var examplesRow: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Your own dates are in")
-                .font(Theme.font(17, weight: .heavy))
+                .font(Theme.display(20, weight: .semibold))
             Text("Remove the examples so only your dates are left?")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -405,7 +405,7 @@ private struct EmptyOccasionsView: View {
             Text("🎂 💍 🎉")
                 .font(Theme.font(44))
             Text("Nothing saved yet")
-                .font(Theme.font(28, weight: .heavy))
+                .font(Theme.display(32))
             Text("Birthdays, anniversaries, any day worth a countdown.")
                 .font(.body)
                 .foregroundStyle(.secondary)

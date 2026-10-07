@@ -78,7 +78,7 @@ struct OccasionDetailView: View {
         let willArrive = scheduler.isAuthorized || DemoMode.isActive
         return VStack(alignment: .leading, spacing: 12) {
             Text("Next reminders")
-                .font(Theme.font(17, weight: .heavy))
+                .font(Theme.display(20, weight: .semibold))
             if upcoming.isEmpty {
                 Text(emptyRemindersText(occasion))
                     .foregroundStyle(.secondary)
@@ -121,7 +121,7 @@ struct OccasionDetailView: View {
     private func noteCard(_ occasion: Occasion) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Note")
-                .font(Theme.font(17, weight: .heavy))
+                .font(Theme.display(20, weight: .semibold))
             Text(occasion.note)
         }
         .padding(16)

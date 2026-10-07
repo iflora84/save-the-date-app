@@ -73,7 +73,7 @@ struct CalendarImportView: View {
     private var deniedView: some View {
         VStack(spacing: 12) {
             Text("Calendar access is off")
-                .font(Theme.font(22, weight: .heavy))
+                .font(Theme.display(24, weight: .semibold))
             Text("Allow full access in Settings to find birthdays, anniversaries and trips.")
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -100,6 +100,7 @@ struct CalendarImportView: View {
                 freeFooter
             }
         }
+        .themedFormBackground()
     }
 
     // Only claims AI when the model actually answered during this scan.

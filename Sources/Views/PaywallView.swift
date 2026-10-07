@@ -49,7 +49,7 @@ struct PaywallView: View {
                 Text("🎉")
                     .font(.system(size: 64))
                 Text("Unlimited dates")
-                    .font(Theme.font(32, weight: .heavy))
+                    .font(Theme.display(34))
                 Text(heroBody)
                     .font(Theme.font(15, weight: .semibold))
                     .opacity(0.9)
@@ -77,7 +77,7 @@ struct PaywallView: View {
         if purchases.isUnlocked {
             VStack(spacing: 12) {
                 Text("You're unlocked — thank you!")
-                    .font(Theme.font(20, weight: .heavy))
+                    .font(Theme.display(22, weight: .semibold))
                 Button("Done") { dismiss() }
                     .buttonStyle(PillButtonStyle(.primary))
             }
