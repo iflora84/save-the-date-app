@@ -52,6 +52,9 @@ enum DemoMode {
                 reminderOffsets: sample.offsets,
                 note: sample.note,
                 palette: sample.palette,
+                // The Screenshots workflow copies these into the store's photos folder.
+                photoFileName: sample.photo.map { $0 + ".jpg" },
+                photoFullFileName: sample.photo.map { $0 + "-full.jpg" },
                 oneTime: sample.oneTime ? true : nil
             ))
         }
@@ -68,15 +71,16 @@ enum DemoMode {
         let note: String
         let palette: OccasionPalette
         var oneTime: Bool = false
+        var photo: String? = nil
     }
 
     private static func samples(unlocked: Bool) -> [Sample] {
         let free: [Sample] = [
-            Sample(name: "Mum", kind: .birthday, emoji: nil, inDays: 0, year: 1961,
-                   offsets: [7, 1, 0], note: "Book the table at Trattoria.", palette: .sunset),
-            Sample(name: "Alex & Sam", kind: .anniversary, emoji: nil, inDays: 1, year: 2019,
-                   offsets: [14, 1], note: "", palette: .berry),
-            Sample(name: "Kyoto trip", kind: .custom, emoji: "✈️", inDays: 12, year: nil,
+            Sample(name: "Mum", kind: .birthday, emoji: nil, inDays: 3, year: 1961,
+                   offsets: [7, 1, 0], note: "Book the table at Trattoria.", palette: .sunset, photo: "mum"),
+            Sample(name: "Alex & Sam", kind: .anniversary, emoji: nil, inDays: 12, year: 2019,
+                   offsets: [14, 1], note: "", palette: .berry, photo: "couple"),
+            Sample(name: "Kyoto trip", kind: .custom, emoji: "✈️", inDays: 24, year: nil,
                    offsets: [30, 7, 1], note: "Flights booked.", palette: .ocean, oneTime: true)
         ]
         if !unlocked {
@@ -84,11 +88,45 @@ enum DemoMode {
         }
         return free + [
             Sample(name: "Dad", kind: .birthday, emoji: nil, inDays: 45, year: 1958,
-                   offsets: [7, 0], note: "", palette: .grape),
+                   offsets: [7, 0], note: "", palette: .grape, photo: "dad"),
             Sample(name: "Nina", kind: .birthday, emoji: "🌻", inDays: 83, year: 1994,
-                   offsets: [3, 0], note: "", palette: .lime),
+                   offsets: [3, 0], note: "", palette: .lime, photo: "nina"),
             Sample(name: "Lease renewal", kind: .custom, emoji: "🔑", inDays: 148, year: nil,
                    offsets: [30, 7], note: "Give notice 60 days ahead.", palette: .midnight)
         ]
+    }
+
+    static let pastedEmail: String = """
+    Your trip is confirmed
+    Flight UA 837 · San Francisco (SFO) to Osaka Kansai (KIX)
+    Thursday 4 February 2027, departs 11:05
+    Booking reference K7Q2PX · 1 adult
+    """
+
+    /// What "Found 1 date" shows in the screenshots.
+    static func foundResult(now: Date = Date(), calendar: Calendar = .current) -> TextDateFinder.Result {
+        let year = calendar.component(.year, from: now) + 1
+        return TextDateFinder.Result(
+            dates: [FoundDate(name: "Flight to Osaka", kind: .custom, emoji: "✈️", month: 2, day: 4, year: year, oneTime: true)],
+            usedAI: true
+        )
+    }
+
+    /// What "Find in Calendar" shows in the screenshots.
+    static func calendarResult(now: Date = Date(), calendar: Calendar = .current) -> CalendarScanner.Result {
+        let next = calendar.component(.year, from: now) + 1
+        let rows: [(String, OccasionKind, String, Int, Int, Int?, Bool)] = [
+            ("Grandma", .birthday, "🎂", 3, 3, nil, false),
+            ("Jo & Lee's wedding", .custom, "💒", 5, 1, next, true),
+            ("Flight to Lisbon", .custom, "✈️", 6, 12, next, true),
+            ("Sam's graduation", .custom, "🎓", 7, 2, next, true),
+            ("Our anniversary", .anniversary, "💍", 8, 20, nil, false),
+            ("Lease renewal", .custom, "🎉", 9, 1, nil, false)
+        ]
+        let candidates = rows.map { row in
+            return CalendarCandidate(id: "calendar|demo-" + row.0, name: row.0, kind: row.1, emoji: row.2,
+                                     month: row.3, day: row.4, year: row.5, oneTime: row.6)
+        }
+        return CalendarScanner.Result(candidates: candidates, usedAI: true)
     }
 }

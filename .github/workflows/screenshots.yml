@@ -64,8 +64,18 @@ jobs:
             sleep 7
             xcrun simctl io "$udid" screenshot "shots/$3.png"
           }
+          # Demo portraits (Unsplash licence, see Screenshots/photos/CREDITS.md)
+          # go where OccasionStore keeps photos; DemoMode points the dates at them.
+          data=$(xcrun simctl get_app_container "$udid" "$BUNDLE_ID" data)
+          mkdir -p "$data/Library/Application Support/SaveTheDate/photos"
+          cp Screenshots/photos/*.jpg "$data/Library/Application Support/SaveTheDate/photos/"
           shoot list -unlocked list-unlocked
+          shoot list "-unlocked -appearance dark" list-dark
           shoot detail -unlocked detail
+          shoot paste -unlocked paste
+          shoot found -unlocked found
+          shoot calendar -unlocked calendar
+          shoot crop -unlocked crop
           shoot settings -unlocked settings
           shoot editor -unlocked editor
           shoot list "" list-free

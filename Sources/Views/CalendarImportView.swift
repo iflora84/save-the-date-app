@@ -26,8 +26,15 @@ struct CalendarImportView: View {
         case loaded
     }
 
-    init(onImported: @escaping (Int) -> Void) {
+    /// `preset` shows a finished scan without touching EventKit (screenshot demo).
+    init(onImported: @escaping (Int) -> Void, preset: CalendarScanner.Result? = nil) {
         self.onImported = onImported
+        if let preset = preset {
+            _candidates = State(initialValue: preset.candidates)
+            _usedAI = State(initialValue: preset.usedAI)
+            _selected = State(initialValue: Set(preset.candidates.map { $0.id }))
+            _phase = State(initialValue: .loaded)
+        }
     }
 
     var body: some View {

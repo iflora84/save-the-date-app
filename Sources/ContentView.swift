@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct ContentView: View {
     @EnvironmentObject private var store: OccasionStore
@@ -46,6 +47,14 @@ struct ContentView: View {
             demoDetail
         case "editor":
             demoEditor
+        case "paste":
+            TextImportView(source: .paste, prefilledText: DemoMode.pastedEmail, onPick: { _ in })
+        case "found":
+            TextImportView(source: .paste, preset: DemoMode.foundResult(), onPick: { _ in })
+        case "calendar":
+            CalendarImportView(onImported: { _ in }, preset: DemoMode.calendarResult())
+        case "crop":
+            demoCrop
         default:
             OccasionListView()
         }
@@ -58,6 +67,15 @@ struct ContentView: View {
             defaultReminderMinute: AppDefaults.defaultReminderMinute,
             onSave: { _ in }
         )
+    }
+
+    @ViewBuilder private var demoCrop: some View {
+        let url = store.photosDirectory.appendingPathComponent("mum-full.jpg", isDirectory: false)
+        if let image = UIImage(contentsOfFile: url.path) {
+            PhotoCropView(image: image, onDone: { _ in })
+        } else {
+            OccasionListView()
+        }
     }
 
     @ViewBuilder private var demoDetail: some View {

@@ -110,11 +110,20 @@ struct TextImportView: View {
         case input, reading, results
     }
 
-    init(source: Source, sharedText: String? = nil, sharedImage: UIImage? = nil, onPick: @escaping (FoundDate) -> Void) {
+    /// `prefilledText` and `preset` set up the screenshot demos without reading anything.
+    init(source: Source, sharedText: String? = nil, sharedImage: UIImage? = nil,
+         prefilledText: String? = nil, preset: TextDateFinder.Result? = nil,
+         onPick: @escaping (FoundDate) -> Void) {
         self.source = source
         self.sharedText = sharedText
         self.sharedImage = sharedImage
         self.onPick = onPick
+        _text = State(initialValue: prefilledText ?? "")
+        if let preset = preset {
+            _found = State(initialValue: preset.dates)
+            _usedAI = State(initialValue: preset.usedAI)
+            _phase = State(initialValue: .results)
+        }
     }
 
     var body: some View {
