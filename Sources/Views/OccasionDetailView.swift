@@ -28,6 +28,9 @@ struct OccasionDetailView: View {
         ScrollView {
             VStack(spacing: 16) {
                 OccasionCardView(occasion: occasion, today: Date(), style: .hero, onPhotoTap: { openPhoto(occasion) })
+                if occasion.kind == .cycle {
+                    CycleCard(occasion: occasion, onChange: { updated in store.update(updated) })
+                }
                 remindersCard(occasion)
                 if !occasion.note.isEmpty {
                     noteCard(occasion)
@@ -66,7 +69,8 @@ struct OccasionDetailView: View {
             PhotoViewer(image: photo.image)
         }
         .onAppear {
-            if OccasionMath.daysUntil(occasion, from: Date(), calendar: .current) == 0 {
+            // No confetti for a period.
+            if !occasion.isCycle && OccasionMath.daysUntil(occasion, from: Date(), calendar: .current) == 0 {
                 Task {
                     try? await Task.sleep(nanoseconds: 300_000_000)
                     confettiTrigger += 1
@@ -115,7 +119,7 @@ struct OccasionDetailView: View {
     }
 
     private func emptyRemindersText(_ occasion: Occasion) -> String {
-        if OccasionMath.daysUntil(occasion, from: Date(), calendar: .current) < 0 {
+        if OccasionMath.isPast(occasion, from: Date(), calendar: .current) {
             return "This date has passed."
         }
         return "No reminders — tap Edit to add some"

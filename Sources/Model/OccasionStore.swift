@@ -133,16 +133,19 @@ final class OccasionStore: ObservableObject {
         return occasions.contains { $0.contactIdentifier == contactIdentifier }
     }
 
-    /// Upcoming dates soonest first, then one-time dates that have passed, most recent first.
+    /// Upcoming dates soonest first, then one-time dates that have passed, most recent
+    /// first. A late cycle counts as due today, not as past.
     func sorted(today: Date = Date(), calendar: Calendar = .current) -> [Occasion] {
         return occasions.sorted { a, b in
-            let daysA = OccasionMath.daysUntil(a, from: today, calendar: calendar)
-            let daysB = OccasionMath.daysUntil(b, from: today, calendar: calendar)
-            if (daysA < 0) != (daysB < 0) {
-                return daysA >= 0
+            let pastA = OccasionMath.isPast(a, from: today, calendar: calendar)
+            let pastB = OccasionMath.isPast(b, from: today, calendar: calendar)
+            if pastA != pastB {
+                return !pastA
             }
+            let daysA = OccasionMath.listDays(a, from: today, calendar: calendar)
+            let daysB = OccasionMath.listDays(b, from: today, calendar: calendar)
             if daysA != daysB {
-                return daysA < 0 ? daysA > daysB : daysA < daysB
+                return pastA ? daysA > daysB : daysA < daysB
             }
             return a.name.lowercased() < b.name.lowercased()
         }
