@@ -8,11 +8,13 @@ enum WidgetBridge {
     private static let thumbnailSide: CGFloat = 240
 
     /// The next dates, soonest first, with the occurrence days the widget needs to
-    /// count down on its own. Past one-time dates are left out.
+    /// count down on its own. Past one-time dates are left out, and so is a cycle
+    /// set to discreet: a Home or Lock Screen saying "2 days late" gives it away.
     static func makeSnapshot(from occasions: [Occasion], today: Date, calendar: Calendar,
                              photoFiles: [UUID: String] = [:]) -> WidgetSnapshot {
         let upcoming = occasions
             .filter { !OccasionMath.isPast($0, from: today, calendar: calendar) }
+            .filter { !($0.kind == .cycle && ($0.cycle?.discreet ?? true)) }
             .sorted { OccasionMath.listDays($0, from: today, calendar: calendar) < OccasionMath.listDays($1, from: today, calendar: calendar) }
             .prefix(maxItems)
         let items = upcoming.map { occasion -> WidgetSnapshot.Item in
