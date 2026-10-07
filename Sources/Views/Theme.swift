@@ -38,6 +38,13 @@ enum Theme {
     static let onAccent: Color = dynamic(dark: 0x1A1408, light: 0xFFFFFF)
     /// The thin gold line on the hero card and around portrait photos.
     static let goldLine: Color = Color(hex: 0xE9D4A6)
+    /// Gold into rose into violet. Used only where Apple Intelligence is at work,
+    /// so the "magic" colour always means AI.
+    static let aurora: LinearGradient = LinearGradient(
+        colors: [Color(hex: 0xD6A95C), Color(hex: 0xC8607A), Color(hex: 0x7B5CC8)],
+        startPoint: .leading,
+        endPoint: .trailing
+    )
     static let onGradientText: Color = .white
     static let confettiColors: [Color] = [
         Color(hex: 0xD6BE8C), Color(hex: 0xC2A15F), Color(hex: 0xB08A5A),
