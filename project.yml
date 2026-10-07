@@ -35,7 +35,6 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
-        UIUserInterfaceStyle: Dark
         ITSAppUsesNonExemptEncryption: false
         NSCalendarsFullAccessUsageDescription: Save the Date looks through your calendar for birthdays, anniversaries and trips so you can add them in one go. Your calendar is read on this iPhone only and never changed or uploaded.
         NSContactsUsageDescription: Save the Date reads birthdays and anniversaries from your contacts so you can add them with one tap. Nothing is changed or uploaded.

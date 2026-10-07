@@ -38,7 +38,12 @@ struct OccasionListView: View {
             }
             .background(Theme.screenBackground)
             .navigationTitle("Save the Date")
+            .toolbarTitleDisplayMode(.inline)
             .toolbar {
+                // The list draws its own serif header, so the bar shows no title.
+                ToolbarItem(placement: .principal) {
+                    Text("")
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         activeSheet = .settings
@@ -51,7 +56,12 @@ struct OccasionListView: View {
                         addTapped()
                     } label: {
                         Image(systemName: "plus")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(Theme.onAccent)
+                            .frame(width: 32, height: 32)
+                            .background(Theme.accentFill, in: Circle())
                     }
+                    .accessibilityLabel("Add a date")
                 }
             }
             .navigationDestination(for: UUID.self) { id in
@@ -94,6 +104,7 @@ struct OccasionListView: View {
         let past = sortedItems.filter { isPast($0) }
         let heroID = upcoming.first?.id
         return List {
+            header
             ForEach(upcoming) { occasion in
                 row(occasion, isHero: occasion.id == heroID)
             }
@@ -120,13 +131,28 @@ struct OccasionListView: View {
         .scrollContentBackground(.hidden)
     }
 
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("YOUR MOMENTS")
+                .font(Theme.eyebrowFont)
+                .tracking(2.4)
+                .foregroundStyle(Theme.accent)
+            Text("Save the Date")
+                .font(Theme.display(40))
+        }
+        .padding(.bottom, 8)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 6, trailing: 16))
+    }
+
     private func isPast(_ occasion: Occasion) -> Bool {
         return OccasionMath.daysUntil(occasion, from: today, calendar: .current) < 0
     }
 
     private var pastHeader: some View {
         Text("Past")
-            .font(Theme.font(20, weight: .heavy))
+            .font(Theme.display(22, weight: .semibold))
             .foregroundStyle(.secondary)
             .padding(.top, 12)
             .listRowBackground(Color.clear)
@@ -138,7 +164,7 @@ struct OccasionListView: View {
         Button {
             path.append(occasion.id)
         } label: {
-            OccasionCardView(occasion: occasion, today: today, style: isHero ? .hero : .compact)
+            OccasionCardView(occasion: occasion, today: today, style: isHero ? .hero : .compact, isNext: isHero)
         }
         .buttonStyle(.plain)
         .listRowBackground(Color.clear)
@@ -156,7 +182,7 @@ struct OccasionListView: View {
     @ViewBuilder private var notificationsRow: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Reminders are off")
-                .font(Theme.font(17, weight: .heavy))
+                .font(Theme.display(20, weight: .semibold))
             Text("Turn on notifications so you never miss a day.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -180,7 +206,7 @@ struct OccasionListView: View {
     private var examplesRow: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Your own dates are in")
-                .font(Theme.font(17, weight: .heavy))
+                .font(Theme.display(20, weight: .semibold))
             Text("Remove the examples so only your dates are left?")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -207,10 +233,17 @@ struct OccasionListView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()
-            Button("Unlock unlimited") { activeSheet = .paywall }
-                .font(Theme.font(14, weight: .semibold))
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
+            Button {
+                activeSheet = .paywall
+            } label: {
+                Text("Unlock unlimited")
+                    .font(Theme.font(14, weight: .semibold))
+                    .foregroundStyle(Theme.onAccent)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(Theme.accentFill, in: Capsule())
+            }
+            .buttonStyle(.plain)
         }
         .padding(.vertical, 4)
         .listRowBackground(Color.clear)
@@ -372,7 +405,7 @@ private struct EmptyOccasionsView: View {
             Text("🎂 💍 🎉")
                 .font(Theme.font(44))
             Text("Nothing saved yet")
-                .font(Theme.font(28, weight: .heavy))
+                .font(Theme.display(32))
             Text("Birthdays, anniversaries, any day worth a countdown.")
                 .font(.body)
                 .foregroundStyle(.secondary)
@@ -396,11 +429,15 @@ struct OccasionCardView: View {
     let calendar: Calendar
     let style: Style
 
-    init(occasion: Occasion, today: Date, calendar: Calendar = .current, style: Style) {
+    /// Only the first upcoming date on the list is "next"; Detail shows any date as a hero.
+    let isNext: Bool
+
+    init(occasion: Occasion, today: Date, calendar: Calendar = .current, style: Style, isNext: Bool = false) {
         self.occasion = occasion
         self.today = today
         self.calendar = calendar
         self.style = style
+        self.isNext = isNext
     }
 
     private var days: Int {
@@ -422,23 +459,36 @@ struct OccasionCardView: View {
                 compactContent
             }
         }
+        .overlay {
+            if style == .hero {
+                RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+                    .strokeBorder(Theme.goldLine.opacity(0.55), lineWidth: 1)
+            }
+        }
     }
 
     private var heroContent: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top) {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center, spacing: 14) {
                 heroArt
-                Spacer()
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(heroEyebrow)
+                        .font(Theme.eyebrowFont)
+                        .tracking(2)
+                        .opacity(0.85)
+                    Text(occasion.name)
+                        .font(Theme.display(24))
+                        .lineLimit(2)
+                }
+                Spacer(minLength: 0)
                 if occasion.isSeededSample {
                     ExampleBadge()
                 }
             }
-            Text(OccasionMath.countdownText(days: days))
-                .font(Theme.font(34, weight: .heavy))
-                .lineLimit(2)
-                .minimumScaleFactor(0.7)
-            Text(occasion.name)
-                .font(Theme.font(22, weight: .bold))
+            heroCount
+            Rectangle()
+                .fill(Color.white.opacity(0.25))
+                .frame(height: 1)
             Text(dateLine)
                 .font(Theme.font(15, weight: .semibold))
                 .opacity(0.9)
@@ -446,32 +496,55 @@ struct OccasionCardView: View {
         .shadow(color: Color.black.opacity(0.15), radius: 2, x: 0, y: 1)
     }
 
-    // The big card keeps its bare emoji; a photo gets a framed circle so a face reads as a portrait.
-    @ViewBuilder private var heroArt: some View {
-        if occasion.photoFileName != nil {
-            OccasionAvatar(occasion: occasion, size: 104, emojiSize: 64)
-                .overlay {
-                    Circle().stroke(Color.white.opacity(0.85), lineWidth: 3)
-                }
+    private var heroEyebrow: String {
+        if days == 0 { return "TODAY" }
+        if days == 1 { return "TOMORROW" }
+        if days < 0 { return "PAST" }
+        if isNext { return "NEXT UP" }
+        if occasion.isOneTime { return "ONE TIME" }
+        return occasion.kind.label.uppercased()
+    }
+
+    @ViewBuilder private var heroCount: some View {
+        if days == 0 {
+            Text("Today")
+                .font(Theme.display(60))
         } else {
-            Text(occasion.displayEmoji)
-                .font(.system(size: 72))
+            VStack(alignment: .leading, spacing: 0) {
+                Text(String(abs(days)))
+                    .font(Theme.display(76))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                Text(dayUnit)
+                    .font(Theme.font(16, weight: .semibold))
+                    .opacity(0.85)
+            }
         }
+    }
+
+    // A thin gold ring around the portrait (or emoji), set slightly apart from it.
+    private var heroArt: some View {
+        OccasionAvatar(occasion: occasion, size: 60, emojiSize: 34)
+            .padding(4)
+            .overlay {
+                Circle().stroke(Theme.goldLine, lineWidth: 1.5)
+            }
     }
 
     private var compactContent: some View {
         HStack(spacing: 14) {
-            OccasionAvatar(occasion: occasion, size: 60, emojiSize: 40)
-            VStack(alignment: .leading, spacing: 2) {
+            OccasionAvatar(occasion: occasion, size: 54, emojiSize: 32)
+            VStack(alignment: .leading, spacing: 3) {
                 if occasion.isSeededSample {
                     ExampleBadge()
                         .padding(.bottom, 2)
                 }
                 Text(occasion.name)
-                    .font(Theme.font(19, weight: .heavy))
+                    .font(Theme.display(21))
+                    .lineLimit(2)
                 Text(dateLine)
-                    .font(Theme.font(13, weight: .semibold))
-                    .opacity(0.9)
+                    .font(Theme.font(13, weight: .medium))
+                    .opacity(0.85)
             }
             Spacer()
             compactTrailing
@@ -487,13 +560,15 @@ struct OccasionCardView: View {
     @ViewBuilder private var compactTrailing: some View {
         VStack(spacing: 0) {
             if days == 0 {
-                Text("Today!!")
-                    .font(Theme.font(20, weight: .heavy))
+                Text("Today")
+                    .font(Theme.display(22))
             } else {
                 Text(String(abs(days)))
-                    .font(Theme.font(30, weight: .heavy))
-                Text(dayUnit)
-                    .font(Theme.font(12, weight: .semibold))
+                    .font(Theme.display(30))
+                Text(dayUnit.uppercased())
+                    .font(Theme.font(10, weight: .semibold))
+                    .tracking(1.5)
+                    .opacity(0.85)
             }
         }
     }

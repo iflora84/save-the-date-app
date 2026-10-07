@@ -84,7 +84,7 @@ struct ContactsImportView: View {
     private var deniedView: some View {
         VStack(spacing: 12) {
             Text("Contacts access is off")
-                .font(Theme.font(22, weight: .heavy))
+                .font(Theme.display(24, weight: .semibold))
             Text("Allow it in Settings to import birthdays and anniversaries.")
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -108,6 +108,7 @@ struct ContactsImportView: View {
                 row(candidate)
             }
         }
+        .themedFormBackground()
     }
 
     @ViewBuilder private var freeHeaderRow: some View {

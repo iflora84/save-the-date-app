@@ -29,9 +29,15 @@ enum Theme {
         }
         return UIColor(red: 0.494, green: 0.388, blue: 0.161, alpha: 1)
     })
-    static let screenBackground: Color = Color(uiColor: .systemGroupedBackground)
-    static let cardBackground: Color = Color(uiColor: .secondarySystemGroupedBackground)
-    static let chipBackground: Color = Color(uiColor: .secondarySystemFill)
+    /// Espresso black by night, warm ivory by day; never a plain grey.
+    static let screenBackground: Color = dynamic(dark: 0x110D0B, light: 0xF6F0E7)
+    static let cardBackground: Color = dynamic(dark: 0x1D1714, light: 0xFFFCF7)
+    static let chipBackground: Color = dynamic(dark: 0x2A221D, light: 0xECE3D5)
+    /// Filled gold for primary buttons and selected chips, with the text that sits on it.
+    static let accentFill: Color = dynamic(dark: 0xD6BE8C, light: 0x8A6A2C)
+    static let onAccent: Color = dynamic(dark: 0x1A1408, light: 0xFFFFFF)
+    /// The thin gold line on the hero card and around portrait photos.
+    static let goldLine: Color = Color(hex: 0xE9D4A6)
     static let onGradientText: Color = .white
     static let confettiColors: [Color] = [
         Color(hex: 0xD6BE8C), Color(hex: 0xC2A15F), Color(hex: 0xB08A5A),
@@ -63,6 +69,18 @@ enum Theme {
         }
     }
 
+    private static func dynamic(dark: UInt, light: UInt) -> Color {
+        return Color(uiColor: UIColor { traits in
+            let hex = traits.userInterfaceStyle == .dark ? dark : light
+            return UIColor(
+                red: CGFloat((hex >> 16) & 0xFF) / 255.0,
+                green: CGFloat((hex >> 8) & 0xFF) / 255.0,
+                blue: CGFloat(hex & 0xFF) / 255.0,
+                alpha: 1
+            )
+        })
+    }
+
     static func gradient(_ palette: OccasionPalette) -> LinearGradient {
         return LinearGradient(colors: colors(palette), startPoint: .topLeading, endPoint: .bottomTrailing)
     }
@@ -72,7 +90,26 @@ enum Theme {
         return Font.system(size: size, weight: weight, design: .rounded)
     }
 
+    /// Serif for titles, names and big day counts; rounded stays for everything else.
+    static func display(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        return Font.system(size: size, weight: weight, design: .serif)
+    }
+
+    /// Small spaced capitals such as "NEXT UP". Pair with `.tracking(2)`.
+    static let eyebrowFont: Font = Theme.font(12, weight: .semibold)
+
     static let chipFont: Font = Theme.font(15, weight: .semibold)
+
+    /// Navigation bar titles in the same serif. Called once, before any bar exists.
+    static func applyNavigationBarFonts() {
+        let bar = UINavigationBar.appearance()
+        if let large = UIFont.systemFont(ofSize: 34, weight: .regular).fontDescriptor.withDesign(.serif) {
+            bar.largeTitleTextAttributes = [.font: UIFont(descriptor: large, size: 34)]
+        }
+        if let inline = UIFont.systemFont(ofSize: 17, weight: .semibold).fontDescriptor.withDesign(.serif) {
+            bar.titleTextAttributes = [.font: UIFont(descriptor: inline, size: 17)]
+        }
+    }
 
     static let emojiChoices: [String] = ["🎂", "🎉", "💍", "❤️", "🥂", "🎓", "🏡", "👶", "🐶", "🐱", "🌸", "✈️", "🎄", "🎁", "⭐️", "🏆"]
 }
@@ -89,7 +126,7 @@ struct PillButtonStyle: ButtonStyle {
     private var fill: Color {
         switch kind {
         case .primary:
-            return Color.primary
+            return Theme.accentFill
         case .secondary:
             return Theme.chipBackground
         case .onGradient:
@@ -102,7 +139,7 @@ struct PillButtonStyle: ButtonStyle {
     private var foreground: Color {
         switch kind {
         case .primary:
-            return Color(uiColor: .systemBackground)
+            return Theme.onAccent
         case .secondary:
             return Color.primary
         case .onGradient:
@@ -149,8 +186,8 @@ struct Chip: View {
                 .fixedSize(horizontal: true, vertical: false)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(isSelected ? Color.primary : Theme.chipBackground, in: Capsule())
-                .foregroundStyle(isSelected ? Color(uiColor: .systemBackground) : Color.primary)
+                .background(isSelected ? Theme.accentFill : Theme.chipBackground, in: Capsule())
+                .foregroundStyle(isSelected ? Theme.onAccent : Color.primary)
         }
         .buttonStyle(.plain)
         .animation(Theme.spring, value: isSelected)
@@ -171,6 +208,55 @@ struct GradientCard<Content: View>: View {
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Theme.gradient(palette), in: RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+            // A soft warm light from the top left, as if the card sat near a lamp.
+            .overlay {
+                RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+                    .fill(LinearGradient(colors: [Color.white.opacity(0.12), Color.clear], startPoint: .topLeading, endPoint: .center))
+                    .allowsHitTesting(false)
+            }
+            .shadow(color: Color.black.opacity(0.18), radius: 14, x: 0, y: 6)
             .foregroundStyle(Theme.onGradientText)
+    }
+}
+
+/// Dark is the default look; some people prefer a light app, so Settings offers it.
+enum AppAppearance: String, CaseIterable, Identifiable {
+    case dark
+    case light
+    case system
+
+    static let storageKey: String = "appearance"
+
+    var id: String { return rawValue }
+
+    var label: String {
+        switch self {
+        case .dark:
+            return "Dark"
+        case .light:
+            return "Light"
+        case .system:
+            return "Auto"
+        }
+    }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .dark:
+            return .dark
+        case .light:
+            return .light
+        case .system:
+            return nil
+        }
+    }
+}
+
+extension View {
+    /// Forms and lists on the warm screen colour instead of the system grey.
+    func themedFormBackground() -> some View {
+        return self
+            .scrollContentBackground(.hidden)
+            .background(Theme.screenBackground)
     }
 }
