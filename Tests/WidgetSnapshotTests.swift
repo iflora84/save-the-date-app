@@ -53,11 +53,20 @@ final class WidgetSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.upcoming(on: try date(2026, 10, 10, calendar: calendar), calendar: calendar).count, 0)
     }
 
+    func testADiscreetCycleNeverReachesTheWidget() throws {
+        let calendar = utcCalendar()
+        let cycle = Occasion(name: "Cycle", kind: .cycle, month: 9, day: 29,
+                             cycle: CycleData(starts: [CalendarDay(year: 2026, month: 9, day: 29)]))
+        XCTAssertEqual(cycle.cycle?.discreet, true, "discreet is the default")
+        let snapshot = WidgetBridge.makeSnapshot(from: [cycle], today: try date(2026, 10, 7, calendar: calendar), calendar: calendar)
+        XCTAssertTrue(snapshot.items.isEmpty)
+    }
+
     func testALateCycleStaysOnTheWidgetAsDue() throws {
         let calendar = utcCalendar()
         let today = try date(2026, 10, 7, calendar: calendar)
         let cycle = Occasion(name: "Cycle", kind: .cycle, month: 9, day: 29,
-                             cycle: CycleData(starts: [CalendarDay(year: 2026, month: 9, day: 1), CalendarDay(year: 2026, month: 9, day: 29)]))
+                             cycle: CycleData(starts: [CalendarDay(year: 2026, month: 9, day: 1), CalendarDay(year: 2026, month: 9, day: 29)], discreet: false))
         let snapshot = WidgetBridge.makeSnapshot(from: [cycle], today: today, calendar: calendar)
         let item = try XCTUnwrap(snapshot.items.first)
         XCTAssertTrue(item.isCycle)

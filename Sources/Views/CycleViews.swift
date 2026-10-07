@@ -4,7 +4,7 @@ enum CycleCopy {
     /// App Review treats a cycle predictor that sounds like contraception as a
     /// medical device, so the disclaimer sits next to every prediction.
     static let disclaimer: String = "Predictions are estimates from your own log. Don't use them for contraception or medical decisions."
-    static let discreetFooter: String = "Lock-screen reminders say “Cycle reminder” instead of mentioning your period."
+    static let discreetFooter: String = "Lock-screen reminders say “Cycle reminder” instead of mentioning your period, and the cycle stays off your widgets."
 }
 
 /// The editor's fields for a Cycle date, replacing the usual "When" section.
