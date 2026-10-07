@@ -65,6 +65,8 @@ struct Occasion: Identifiable, Codable, Equatable, Hashable {
     /// and the flag is cleared the moment the user edits one. Optional so files
     /// written before this existed still decode.
     var isSample: Bool?
+    /// A JPEG in the store's photos folder, shown on the card instead of the emoji.
+    var photoFileName: String?
 
     init(
         id: UUID = UUID(),
@@ -81,7 +83,8 @@ struct Occasion: Identifiable, Codable, Equatable, Hashable {
         palette: OccasionPalette = .sunset,
         createdAt: Date = Date(),
         contactIdentifier: String? = nil,
-        isSample: Bool? = nil
+        isSample: Bool? = nil,
+        photoFileName: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -98,6 +101,7 @@ struct Occasion: Identifiable, Codable, Equatable, Hashable {
         self.createdAt = createdAt
         self.contactIdentifier = contactIdentifier
         self.isSample = isSample
+        self.photoFileName = photoFileName
     }
 
     var isSeededSample: Bool {

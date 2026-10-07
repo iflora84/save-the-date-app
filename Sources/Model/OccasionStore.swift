@@ -64,8 +64,31 @@ final class OccasionStore: ObservableObject {
         return max(0, OccasionStore.freeLimit - userDateCount)
     }
 
+    var photosDirectory: URL {
+        return fileURL.deletingLastPathComponent().appendingPathComponent("photos", isDirectory: true)
+    }
+
+    func photoURL(for occasion: Occasion) -> URL? {
+        guard let name = occasion.photoFileName else { return nil }
+        return photosDirectory.appendingPathComponent(name, isDirectory: false)
+    }
+
+    /// Writes the image and returns the file name to put on the occasion. Each save
+    /// gets a new name, so a cancelled edit never touches the photo in use.
+    func savePhoto(_ jpegData: Data) -> String? {
+        try? FileManager.default.createDirectory(at: photosDirectory, withIntermediateDirectories: true)
+        let name = UUID().uuidString + ".jpg"
+        do {
+            try jpegData.write(to: photosDirectory.appendingPathComponent(name, isDirectory: false), options: .atomic)
+        } catch {
+            return nil
+        }
+        return name
+    }
+
     func add(_ occasion: Occasion) {
         if let index = occasions.firstIndex(where: { $0.id == occasion.id }) {
+            removePhotoIfReplaced(occasions[index], by: occasion)
             occasions[index] = occasion
         } else {
             occasions.append(occasion)
@@ -77,11 +100,15 @@ final class OccasionStore: ObservableObject {
         guard let index = occasions.firstIndex(where: { $0.id == occasion.id }) else {
             return
         }
+        removePhotoIfReplaced(occasions[index], by: occasion)
         occasions[index] = occasion
         save()
     }
 
     func delete(id: UUID) {
+        if let gone = occasion(withID: id) {
+            removePhotoFile(named: gone.photoFileName)
+        }
         occasions.removeAll { $0.id == id }
         save()
     }
@@ -108,6 +135,17 @@ final class OccasionStore: ObservableObject {
             }
             return a.name.lowercased() < b.name.lowercased()
         }
+    }
+
+    private func removePhotoIfReplaced(_ old: Occasion, by new: Occasion) {
+        if old.photoFileName != new.photoFileName {
+            removePhotoFile(named: old.photoFileName)
+        }
+    }
+
+    private func removePhotoFile(named name: String?) {
+        guard let name = name else { return }
+        try? FileManager.default.removeItem(at: photosDirectory.appendingPathComponent(name, isDirectory: false))
     }
 
     private static func load(from url: URL) -> [Occasion] {

@@ -1,10 +1,12 @@
 import SwiftUI
 import UIKit
+import PhotosUI
 
 struct OccasionEditorView: View {
     let isNew: Bool
     let onSave: (Occasion) -> Void
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: OccasionStore
 
     @State private var draft: Occasion
     @State private var includeYear: Bool
@@ -12,6 +14,9 @@ struct OccasionEditorView: View {
     @State private var reminderTime: Date
     @State private var customDays: Int = 10
     @State private var emojiText: String = ""
+    @State private var photoItem: PhotosPickerItem? = nil
+    /// Picked but not yet written; it only reaches disk on Save.
+    @State private var pendingPhoto: UIImage? = nil
     @FocusState private var customFocused: Bool
 
     init(editing occasion: Occasion?, defaultReminderHour: Int, defaultReminderMinute: Int, onSave: @escaping (Occasion) -> Void) {
@@ -68,6 +73,7 @@ struct OccasionEditorView: View {
             Form {
                 nameSection
                 kindSection
+                photoSection
                 emojiSection
                 colorSection
                 whenSection
@@ -75,6 +81,9 @@ struct OccasionEditorView: View {
                 noteSection
             }
             .scrollDismissesKeyboard(.interactively)
+            .onChange(of: photoItem) { _, item in
+                Task { await loadPhoto(item) }
+            }
             .navigationTitle(isNew ? "New date" : "Edit date")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -109,6 +118,45 @@ struct OccasionEditorView: View {
                     .frame(maxWidth: .infinity)
                 }
             }
+        }
+    }
+
+    private var hasPhoto: Bool {
+        return pendingPhoto != nil || draft.photoFileName != nil
+    }
+
+    private var photoSection: some View {
+        Section {
+            HStack(spacing: 16) {
+                photoPreview
+                VStack(alignment: .leading, spacing: 10) {
+                    PhotosPicker(selection: $photoItem, matching: .images) {
+                        Text(hasPhoto ? "Change photo" : "Add a photo")
+                    }
+                    .buttonStyle(.borderless)
+                    if hasPhoto {
+                        Button("Remove photo", role: .destructive) { removePhoto() }
+                            .buttonStyle(.borderless)
+                    }
+                }
+            }
+        } header: {
+            Text("Photo")
+        } footer: {
+            Text("Shown on the card instead of the emoji. It stays on this iPhone.")
+        }
+    }
+
+    @ViewBuilder private var photoPreview: some View {
+        if let image = pendingPhoto {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 64, height: 64)
+                .clipShape(Circle())
+        } else {
+            OccasionAvatar(occasion: draft, size: 64, emojiSize: 34)
+                .background(Theme.gradient(draft.palette), in: Circle())
         }
     }
 
@@ -248,6 +296,36 @@ struct OccasionEditorView: View {
         customFocused = false
     }
 
+    private func loadPhoto(_ item: PhotosPickerItem?) async {
+        guard let item = item,
+              let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data) else {
+            return
+        }
+        pendingPhoto = OccasionEditorView.downscaled(image, maxSide: 720)
+    }
+
+    private func removePhoto() {
+        pendingPhoto = nil
+        photoItem = nil
+        draft.photoFileName = nil
+    }
+
+    /// Cards show the photo at most ~100pt wide, so 720px keeps it sharp and the file small.
+    private static func downscaled(_ image: UIImage, maxSide: CGFloat) -> UIImage {
+        let longest = max(image.size.width, image.size.height)
+        if longest <= maxSide {
+            return image
+        }
+        let scale = maxSide / longest
+        let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: size))
+        }
+    }
+
     private func save() {
         draft.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
         draft.year = includeYear ? year : nil
@@ -257,6 +335,11 @@ struct OccasionEditorView: View {
         draft.reminderOffsets = draft.reminderOffsets.sorted(by: >)
         // Once the user edits an example it is their own date, so it takes a free slot.
         draft.isSample = nil
+        if let image = pendingPhoto,
+           let data = image.jpegData(compressionQuality: 0.85),
+           let name = store.savePhoto(data) {
+            draft.photoFileName = name
+        }
         onSave(draft)
         dismiss()
     }
