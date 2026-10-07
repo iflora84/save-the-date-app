@@ -66,7 +66,11 @@ struct Occasion: Identifiable, Codable, Equatable, Hashable {
     /// written before this existed still decode.
     var isSample: Bool?
     /// A JPEG in the store's photos folder, shown on the card instead of the emoji.
+    /// It is the square the user framed in the cropper.
     var photoFileName: String?
+    /// The whole photo, for viewing full screen and for re-framing later. Older
+    /// dates have only the square.
+    var photoFullFileName: String?
     /// True for a date that happens once, such as a flight. Optional so older
     /// files still decode; they repeat yearly.
     var oneTime: Bool?
@@ -88,6 +92,7 @@ struct Occasion: Identifiable, Codable, Equatable, Hashable {
         contactIdentifier: String? = nil,
         isSample: Bool? = nil,
         photoFileName: String? = nil,
+        photoFullFileName: String? = nil,
         oneTime: Bool? = nil
     ) {
         self.id = id
@@ -106,6 +111,7 @@ struct Occasion: Identifiable, Codable, Equatable, Hashable {
         self.contactIdentifier = contactIdentifier
         self.isSample = isSample
         self.photoFileName = photoFileName
+        self.photoFullFileName = photoFullFileName
         self.oneTime = oneTime
     }
 

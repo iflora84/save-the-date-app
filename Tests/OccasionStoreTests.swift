@@ -185,6 +185,35 @@ final class OccasionStoreTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: secondURL.path), "deleting the date deletes its photo")
     }
 
+    func testReframingKeepsTheFullPhotoAndDeletingRemovesBoth() throws {
+        let store = OccasionStore(directory: makeDirectory())
+        var mom = makeOccasion(name: "Mom", month: 3, day: 14)
+        mom.photoFileName = try XCTUnwrap(store.savePhoto(Data([1])))
+        mom.photoFullFileName = try XCTUnwrap(store.savePhoto(Data([2])))
+        store.add(mom)
+        let fullURL = try XCTUnwrap(store.fullPhotoURL(for: mom))
+        let firstSquare = try XCTUnwrap(store.photoURL(for: mom))
+
+        // Re-framing writes a new square and keeps the same full photo.
+        mom.photoFileName = try XCTUnwrap(store.savePhoto(Data([3])))
+        store.update(mom)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: firstSquare.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fullURL.path))
+
+        let square = try XCTUnwrap(store.photoURL(for: mom))
+        store.delete(id: mom.id)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: square.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fullURL.path))
+    }
+
+    func testFullPhotoFallsBackToTheSquare() throws {
+        let store = OccasionStore(directory: makeDirectory())
+        var mom = makeOccasion(name: "Mom", month: 3, day: 14)
+        XCTAssertNil(store.fullPhotoURL(for: mom))
+        mom.photoFileName = "square.jpg"
+        XCTAssertEqual(store.fullPhotoURL(for: mom)?.lastPathComponent, "square.jpg")
+    }
+
     func testFilesWithoutPhotoFieldStillLoad() throws {
         let directory = makeDirectory()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

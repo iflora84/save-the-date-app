@@ -10,6 +10,7 @@ struct OccasionDetailView: View {
     @State private var showEditor: Bool = false
     @State private var showDeleteConfirm: Bool = false
     @State private var confettiTrigger: Int = 0
+    @State private var viewedPhoto: ViewedPhoto? = nil
 
     init(occasionID: UUID) {
         self.occasionID = occasionID
@@ -26,7 +27,7 @@ struct OccasionDetailView: View {
     private func content(_ occasion: Occasion) -> some View {
         ScrollView {
             VStack(spacing: 16) {
-                OccasionCardView(occasion: occasion, today: Date(), style: .hero)
+                OccasionCardView(occasion: occasion, today: Date(), style: .hero, onPhotoTap: { openPhoto(occasion) })
                 remindersCard(occasion)
                 if !occasion.note.isEmpty {
                     noteCard(occasion)
@@ -61,6 +62,9 @@ struct OccasionDetailView: View {
             }
         }
         .confetti(trigger: confettiTrigger)
+        .fullScreenCover(item: $viewedPhoto) { photo in
+            PhotoViewer(image: photo.image)
+        }
         .onAppear {
             if OccasionMath.daysUntil(occasion, from: Date(), calendar: .current) == 0 {
                 Task {
@@ -101,6 +105,13 @@ struct OccasionDetailView: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+    }
+
+    private func openPhoto(_ occasion: Occasion) {
+        guard let url = store.fullPhotoURL(for: occasion), let image = UIImage(contentsOfFile: url.path) else {
+            return
+        }
+        viewedPhoto = ViewedPhoto(image: image)
     }
 
     private func emptyRemindersText(_ occasion: Occasion) -> String {
@@ -162,4 +173,9 @@ struct OccasionDetailView: View {
         }
         .buttonStyle(PillButtonStyle(.destructive))
     }
+}
+
+private struct ViewedPhoto: Identifiable {
+    let id: UUID = UUID()
+    let image: UIImage
 }
