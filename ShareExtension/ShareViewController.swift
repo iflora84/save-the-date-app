@@ -31,21 +31,23 @@ final class ShareViewController: UIViewController {
 @MainActor
 final class ShareModel: ObservableObject {
     enum State: Equatable {
-        case working, saved, nothing, failed
+        /// noSharedFolder means the App Group is missing from this build's signature;
+        /// writeFailed means the folder exists but the file could not be written.
+        case working, saved, nothing, noSharedFolder, writeFailed
     }
 
     @Published private(set) var state: State = .working
 
     func receive(_ providers: [NSItemProvider]) async {
         guard let directory = SharedInbox.directory else {
-            state = .failed
+            state = .noSharedFolder
             return
         }
         guard let item = await firstItem(providers) else {
             state = .nothing
             return
         }
-        state = SharedInbox.save(item, in: directory) ? .saved : .failed
+        state = SharedInbox.save(item, in: directory) ? .saved : .writeFailed
     }
 
     private func firstItem(_ providers: [NSItemProvider]) async -> SharedInbox.Item? {
@@ -152,7 +154,7 @@ private struct ShareView: View {
             return "Saved to Save the Date"
         case .nothing:
             return "Nothing to save"
-        case .failed:
+        case .noSharedFolder, .writeFailed:
             return "Couldn't save"
         }
     }
@@ -165,8 +167,10 @@ private struct ShareView: View {
             return "Open Save the Date to check the date and add it. Nothing was uploaded."
         case .nothing:
             return "Share some text, a link or a screenshot."
-        case .failed:
-            return "Save the Date couldn't reach its shared folder. Update the app and try again."
+        case .noSharedFolder:
+            return "Save the Date couldn't reach its shared folder. Update the app and try again. (code 1)"
+        case .writeFailed:
+            return "Save the Date couldn't write to its shared folder. Free some space and try again. (code 2)"
         }
     }
 }
