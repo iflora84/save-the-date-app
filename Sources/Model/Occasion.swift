@@ -67,6 +67,9 @@ struct Occasion: Identifiable, Codable, Equatable, Hashable {
     var isSample: Bool?
     /// A JPEG in the store's photos folder, shown on the card instead of the emoji.
     var photoFileName: String?
+    /// True for a date that happens once, such as a flight. Optional so older
+    /// files still decode; they repeat yearly.
+    var oneTime: Bool?
 
     init(
         id: UUID = UUID(),
@@ -84,7 +87,8 @@ struct Occasion: Identifiable, Codable, Equatable, Hashable {
         createdAt: Date = Date(),
         contactIdentifier: String? = nil,
         isSample: Bool? = nil,
-        photoFileName: String? = nil
+        photoFileName: String? = nil,
+        oneTime: Bool? = nil
     ) {
         self.id = id
         self.name = name
@@ -102,6 +106,12 @@ struct Occasion: Identifiable, Codable, Equatable, Hashable {
         self.contactIdentifier = contactIdentifier
         self.isSample = isSample
         self.photoFileName = photoFileName
+        self.oneTime = oneTime
+    }
+
+    /// A one-time date needs its year to mean anything; without one it repeats.
+    var isOneTime: Bool {
+        return oneTime == true && year != nil
     }
 
     var isSeededSample: Bool {

@@ -126,12 +126,16 @@ final class OccasionStore: ObservableObject {
         return occasions.contains { $0.contactIdentifier == contactIdentifier }
     }
 
+    /// Upcoming dates soonest first, then one-time dates that have passed, most recent first.
     func sorted(today: Date = Date(), calendar: Calendar = .current) -> [Occasion] {
         return occasions.sorted { a, b in
             let daysA = OccasionMath.daysUntil(a, from: today, calendar: calendar)
             let daysB = OccasionMath.daysUntil(b, from: today, calendar: calendar)
+            if (daysA < 0) != (daysB < 0) {
+                return daysA >= 0
+            }
             if daysA != daysB {
-                return daysA < daysB
+                return daysA < 0 ? daysA > daysB : daysA < daysB
             }
             return a.name.lowercased() < b.name.lowercased()
         }

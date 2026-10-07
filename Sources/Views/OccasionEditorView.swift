@@ -10,6 +10,7 @@ struct OccasionEditorView: View {
 
     @State private var draft: Occasion
     @State private var includeYear: Bool
+    @State private var repeatsYearly: Bool
     @State private var year: Int
     @State private var reminderTime: Date
     @State private var customDays: Int = 10
@@ -51,6 +52,7 @@ struct OccasionEditorView: View {
 
         _draft = State(initialValue: initialDraft)
         _includeYear = State(initialValue: occasion?.year != nil)
+        _repeatsYearly = State(initialValue: !(occasion?.isOneTime ?? false))
         _year = State(initialValue: occasion?.year ?? (currentYear - 30))
         _reminderTime = State(initialValue: Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: Date()) ?? Date())
     }
@@ -59,8 +61,11 @@ struct OccasionEditorView: View {
         return Calendar.current.component(.year, from: Date())
     }
 
+    /// A yearly date started in the past; a one-time date such as a trip can be years ahead.
     private var years: [Int] {
-        return Array((1900...OccasionEditorView.currentYear()).reversed())
+        let current = OccasionEditorView.currentYear()
+        let latest = repeatsYearly ? current : current + 10
+        return Array((1900...latest).reversed())
     }
 
     private var canSave: Bool {
@@ -225,8 +230,15 @@ struct OccasionEditorView: View {
             .onChange(of: draft.month) { _, m in
                 draft.day = min(draft.day, OccasionMath.daysInMonth(m))
             }
-            Toggle("Include year", isOn: $includeYear)
-            if includeYear {
+            Toggle("Repeats every year", isOn: $repeatsYearly)
+                .onChange(of: repeatsYearly) { _, repeats in
+                    let current = OccasionEditorView.currentYear()
+                    year = repeats ? min(year, current) : max(year, current)
+                }
+            if repeatsYearly {
+                Toggle("Include year", isOn: $includeYear)
+            }
+            if includeYear || !repeatsYearly {
                 Picker("Year", selection: $year) {
                     ForEach(years, id: \.self) { y in
                         Text(String(y)).tag(y)
@@ -238,7 +250,9 @@ struct OccasionEditorView: View {
         } header: {
             Text("When")
         } footer: {
-            Text("Add the year to see “turns 30” or “5th anniversary”.")
+            Text(repeatsYearly
+                 ? "Add the year to see “turns 30” or “5th anniversary”."
+                 : "Happens once, like a trip. After the day it moves to Past.")
         }
     }
 
@@ -328,7 +342,8 @@ struct OccasionEditorView: View {
 
     private func save() {
         draft.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        draft.year = includeYear ? year : nil
+        draft.year = (includeYear || !repeatsYearly) ? year : nil
+        draft.oneTime = repeatsYearly ? nil : true
         let comps = Calendar.current.dateComponents([.hour, .minute], from: reminderTime)
         draft.reminderHour = comps.hour ?? AppDefaults.defaultReminderHour
         draft.reminderMinute = comps.minute ?? AppDefaults.defaultReminderMinute

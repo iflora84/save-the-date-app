@@ -80,7 +80,7 @@ struct OccasionDetailView: View {
             Text("Next reminders")
                 .font(Theme.font(17, weight: .heavy))
             if upcoming.isEmpty {
-                Text("No reminders — tap Edit to add some")
+                Text(emptyRemindersText(occasion))
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(upcoming, id: \.identifier) { item in
@@ -101,6 +101,13 @@ struct OccasionDetailView: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+    }
+
+    private func emptyRemindersText(_ occasion: Occasion) -> String {
+        if OccasionMath.daysUntil(occasion, from: Date(), calendar: .current) < 0 {
+            return "This date has passed."
+        }
+        return "No reminders — tap Edit to add some"
     }
 
     private func fireText(_ date: Date) -> String {
