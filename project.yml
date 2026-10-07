@@ -23,6 +23,7 @@ targets:
       - sdk: FoundationModels.framework
         weak: true
       - target: SaveTheDateShare
+      - target: SaveTheDateWidget
     # The group is ticked on both App IDs in the developer portal; an unsigned
     # archive carries no entitlements, so export signing takes them from there.
     entitlements:
@@ -80,6 +81,33 @@ targets:
               NSExtensionActivationSupportsWebURLWithMaxCount: 1
     dependencies:
       - sdk: SwiftUI.framework
+
+  # Home and Lock Screen countdowns. Reads only the snapshot the app writes to
+  # the App Group (Shared/WidgetSnapshot.swift), never occasions.json.
+  SaveTheDateWidget:
+    type: app-extension
+    platform: iOS
+    sources: [Widget, Shared]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.iflora.savethedate.widget
+        TARGETED_DEVICE_FAMILY: "1"
+        SKIP_INSTALL: YES
+    entitlements:
+      path: Widget/SaveTheDateWidget.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.iflora.savethedate]
+    info:
+      path: Widget/Info.plist
+      properties:
+        CFBundleDisplayName: Save the Date
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    dependencies:
+      - sdk: SwiftUI.framework
+      - sdk: WidgetKit.framework
   SaveTheDateTests:
     type: bundle.unit-test
     platform: iOS
