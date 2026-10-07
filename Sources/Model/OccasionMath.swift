@@ -42,7 +42,11 @@ enum OccasionMath {
     }
 
     /// For a one-time date this is its only occurrence, which may be in the past.
+    /// For a cycle it is the predicted next start, which is in the past when late.
     static func nextOccurrence(of occasion: Occasion, from today: Date, calendar: Calendar) -> Date {
+        if occasion.isCycle, let cycle = occasion.cycle, let next = nextPeriodStart(cycle, calendar: calendar) {
+            return next
+        }
         if occasion.isOneTime, let year = occasion.year,
            let only = occurrence(month: occasion.month, day: occasion.day, year: year, calendar: calendar) {
             return only
@@ -55,6 +59,72 @@ enum OccasionMath {
         let todayStart = calendar.startOfDay(for: today)
         let next = nextOccurrence(of: occasion, from: today, calendar: calendar)
         return calendar.dateComponents([.day], from: todayStart, to: next).day ?? 0
+    }
+
+    /// One-time dates that have gone by. A late cycle is never "past": it is due.
+    static func isPast(_ occasion: Occasion, from today: Date, calendar: Calendar) -> Bool {
+        if occasion.isCycle { return false }
+        return daysUntil(occasion, from: today, calendar: calendar) < 0
+    }
+
+    /// Where a date sorts on the list; a late cycle sorts as due today.
+    static func listDays(_ occasion: Occasion, from today: Date, calendar: Calendar) -> Int {
+        let days = daysUntil(occasion, from: today, calendar: calendar)
+        return occasion.isCycle ? max(0, days) : days
+    }
+
+    enum CycleStatus: Equatable {
+        case inPeriod(day: Int)
+        case upcoming(days: Int)
+        case late(days: Int)
+    }
+
+    /// Lengths between consecutive logged starts. Gaps outside a plausible range
+    /// (a missed log, a typo) are left out of the prediction.
+    static func cycleLengths(_ cycle: CycleData, calendar: Calendar) -> [Int] {
+        let dates = cycle.starts.compactMap { $0.date(calendar: calendar) }
+        var lengths: [Int] = []
+        var index = 1
+        while index < dates.count {
+            if let days = calendar.dateComponents([.day], from: dates[index - 1], to: dates[index]).day,
+               CycleData.cycleLengthRange.contains(days) {
+                lengths.append(days)
+            }
+            index += 1
+        }
+        return lengths
+    }
+
+    /// The median of the last six cycles, or the usual length until there is one.
+    static func predictedCycleLength(_ cycle: CycleData, calendar: Calendar) -> Int {
+        let recent = Array(cycleLengths(cycle, calendar: calendar).suffix(6)).sorted()
+        if recent.isEmpty {
+            return cycle.usualCycleLength
+        }
+        let middle = recent.count / 2
+        if recent.count % 2 == 1 {
+            return recent[middle]
+        }
+        return Int((Double(recent[middle - 1] + recent[middle]) / 2.0).rounded())
+    }
+
+    static func nextPeriodStart(_ cycle: CycleData, calendar: Calendar) -> Date? {
+        guard let last = cycle.starts.last?.date(calendar: calendar) else { return nil }
+        return calendar.date(byAdding: .day, value: predictedCycleLength(cycle, calendar: calendar), to: last)
+    }
+
+    static func cycleStatus(_ cycle: CycleData, today: Date, calendar: Calendar) -> CycleStatus? {
+        guard let last = cycle.starts.last?.date(calendar: calendar),
+              let next = nextPeriodStart(cycle, calendar: calendar) else {
+            return nil
+        }
+        let todayStart = calendar.startOfDay(for: today)
+        let sinceStart = calendar.dateComponents([.day], from: last, to: todayStart).day ?? 0
+        if sinceStart >= 0 && sinceStart < cycle.periodLength {
+            return .inPeriod(day: sinceStart + 1)
+        }
+        let until = calendar.dateComponents([.day], from: todayStart, to: next).day ?? 0
+        return until >= 0 ? .upcoming(days: until) : .late(days: -until)
     }
 
     static func yearsOn(occurrence: Date, startYear: Int, calendar: Calendar) -> Int? {
@@ -82,7 +152,7 @@ enum OccasionMath {
             return "turns \(years)"
         case .anniversary:
             return "\(ordinal(years)) anniversary"
-        case .custom:
+        case .custom, .cycle:
             return years == 1 ? "1 year" : "\(years) years"
         }
     }

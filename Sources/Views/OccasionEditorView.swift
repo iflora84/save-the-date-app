@@ -11,6 +11,10 @@ struct OccasionEditorView: View {
     @State private var draft: Occasion
     @State private var includeYear: Bool
     @State private var repeatsYearly: Bool
+    @State private var cycleStart: Date
+    @State private var cycleLength: Int
+    @State private var periodLength: Int
+    @State private var discreetReminders: Bool
     @State private var year: Int
     @State private var reminderTime: Date
     @State private var customDays: Int = 10
@@ -58,6 +62,11 @@ struct OccasionEditorView: View {
 
         _draft = State(initialValue: initialDraft)
         let start = occasion ?? prefill
+        let cycle = start?.cycle
+        _cycleStart = State(initialValue: cycle?.starts.last?.date(calendar: .current) ?? Date())
+        _cycleLength = State(initialValue: cycle?.usualCycleLength ?? CycleData.defaultCycleLength)
+        _periodLength = State(initialValue: cycle?.periodLength ?? CycleData.defaultPeriodLength)
+        _discreetReminders = State(initialValue: cycle?.discreet ?? true)
         _includeYear = State(initialValue: start?.year != nil)
         _repeatsYearly = State(initialValue: !(start?.isOneTime ?? false))
         _year = State(initialValue: start?.year ?? (currentYear - 30))
@@ -88,7 +97,12 @@ struct OccasionEditorView: View {
                 photoSection
                 emojiSection
                 colorSection
-                whenSection
+                if draft.kind == .cycle {
+                    CycleEditorSection(lastStart: $cycleStart, cycleLength: $cycleLength,
+                                       periodLength: $periodLength, discreet: $discreetReminders)
+                } else {
+                    whenSection
+                }
                 remindSection
                 noteSection
             }
@@ -131,12 +145,15 @@ struct OccasionEditorView: View {
 
     private var kindSection: some View {
         Section("Kind") {
-            HStack(spacing: 8) {
-                ForEach(OccasionKind.allCases) { kind in
-                    Chip(kind.label, isSelected: draft.kind == kind) {
-                        selectKind(kind)
+            // Four kinds no longer fit one row on smaller phones, so the row scrolls
+            // like the emoji and colour rows.
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(OccasionKind.allCases) { kind in
+                        Chip(kind.label, isSelected: draft.kind == kind) {
+                            selectKind(kind)
+                        }
                     }
-                    .frame(maxWidth: .infinity)
                 }
             }
         }
@@ -310,6 +327,12 @@ struct OccasionEditorView: View {
         if draft.emoji == draft.kind.defaultEmoji {
             draft.emoji = kind.defaultEmoji
         }
+        if kind == .cycle && draft.kind != .cycle {
+            if draft.name.trimmingCharacters(in: .whitespaces).isEmpty {
+                draft.name = "Cycle"
+            }
+            draft.reminderOffsets = [2, 0]
+        }
         draft.kind = kind
     }
 
@@ -360,6 +383,25 @@ struct OccasionEditorView: View {
         draft.photoFullFileName = nil
     }
 
+    /// "Last period started" edits the latest logged start; earlier starts are
+    /// added and removed on the date's page.
+    private func applyCycle() {
+        let picked = CalendarDay(date: cycleStart, calendar: .current)
+        var data = draft.cycle ?? CycleData(starts: [])
+        if let last = data.starts.last, last != picked {
+            data.remove(last)
+        }
+        data.log(picked)
+        data.usualCycleLength = cycleLength
+        data.periodLength = periodLength
+        data.discreet = discreetReminders
+        draft.cycle = data
+        draft.month = picked.month
+        draft.day = picked.day
+        draft.year = nil
+        draft.oneTime = nil
+    }
+
     private func save() {
         draft.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
         draft.year = (includeYear || !repeatsYearly) ? year : nil
@@ -368,6 +410,11 @@ struct OccasionEditorView: View {
         draft.reminderHour = comps.hour ?? AppDefaults.defaultReminderHour
         draft.reminderMinute = comps.minute ?? AppDefaults.defaultReminderMinute
         draft.reminderOffsets = draft.reminderOffsets.sorted(by: >)
+        if draft.kind == .cycle {
+            applyCycle()
+        } else {
+            draft.cycle = nil
+        }
         // Once the user edits an example it is their own date, so it takes a free slot.
         draft.isSample = nil
         if let image = pendingPhoto,

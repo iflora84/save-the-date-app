@@ -50,7 +50,7 @@ enum ReminderPlan {
             }
             var cycle = 0
             // A one-time date has no next year to plan for.
-            let cycleCount = occasion.isOneTime ? 1 : max(1, cycles)
+            let cycleCount = (occasion.isOneTime || occasion.isCycle) ? 1 : max(1, cycles)
             while cycle < cycleCount {
                 guard let fireInstant = fire, fireInstant > now else {
                     break
@@ -66,8 +66,8 @@ enum ReminderPlan {
                     offset: offset,
                     fireDate: fireInstant,
                     dateComponents: components,
-                    title: title(offset: offset, emoji: occasion.displayEmoji),
-                    body: body(occasion: occasion, offset: offset, years: years)
+                    title: occasion.isCycle ? cycleTitle(occasion) : title(offset: offset, emoji: occasion.displayEmoji),
+                    body: occasion.isCycle ? cycleBody(occasion, offset: offset) : body(occasion: occasion, offset: offset, years: years)
                 ))
                 cycle += 1
                 guard let dayAfter = calendar.date(byAdding: .day, value: 1, to: occurrence) else {
@@ -78,6 +78,26 @@ enum ReminderPlan {
             }
         }
         return planned.sorted { $0.fireDate < $1.fireDate }
+    }
+
+    /// A cycle is re-predicted every time a start is logged, so only the next one is
+    /// planned. Discreet text keeps the lock screen neutral.
+    static func cycleTitle(_ occasion: Occasion) -> String {
+        let discreet = occasion.cycle?.discreet ?? true
+        return "\(occasion.displayEmoji) " + (discreet ? "Cycle reminder" : "Period reminder")
+    }
+
+    static func cycleBody(_ occasion: Occasion, offset: Int) -> String {
+        let discreet = occasion.cycle?.discreet ?? true
+        let when: String
+        if offset == 0 {
+            when = "today"
+        } else if offset == 1 {
+            when = "tomorrow"
+        } else {
+            when = "in \(offset) days"
+        }
+        return discreet ? "Expected \(when)" : "Your period is expected \(when)"
     }
 
     static func title(offset: Int, emoji: String) -> String {
@@ -98,7 +118,7 @@ enum ReminderPlan {
                 return "\(name)'s \(OccasionMath.ordinal(years)) anniversary \(when)"
             }
             return "\(name)'s anniversary \(when)"
-        case .custom:
+        case .custom, .cycle:
             if let years = years {
                 return "\(name) \(when) — \(OccasionMath.milestoneText(kind: .custom, years: years))"
             }

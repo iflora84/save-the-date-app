@@ -184,7 +184,7 @@ struct OccasionListView: View {
     }
 
     private func isPast(_ occasion: Occasion) -> Bool {
-        return OccasionMath.daysUntil(occasion, from: today, calendar: .current) < 0
+        return OccasionMath.isPast(occasion, from: today, calendar: .current)
     }
 
     private var pastHeader: some View {
@@ -490,7 +490,7 @@ struct OccasionListView: View {
     private func celebrateIfToday() {
         if didCelebrateToday { return }
         let hasToday = items.contains { occasion in
-            OccasionMath.daysUntil(occasion, from: today, calendar: .current) == 0
+            !occasion.isCycle && OccasionMath.daysUntil(occasion, from: today, calendar: .current) == 0
         }
         if hasToday {
             didCelebrateToday = true
@@ -550,7 +550,30 @@ struct OccasionCardView: View {
         return OccasionMath.daysUntil(occasion, from: today, calendar: calendar)
     }
 
+    /// Only for a Cycle date with at least one logged start.
+    private var cycleStatus: OccasionMath.CycleStatus? {
+        guard occasion.isCycle, let cycle = occasion.cycle else { return nil }
+        return OccasionMath.cycleStatus(cycle, today: today, calendar: calendar)
+    }
+
+    private var periodDay: Int? {
+        if case .inPeriod(let day)? = cycleStatus { return day }
+        return nil
+    }
+
+    private var isLateCycle: Bool {
+        if case .late? = cycleStatus { return true }
+        return false
+    }
+
     private var dateLine: String {
+        if occasion.isCycle, let cycle = occasion.cycle {
+            // Kept neutral on the list; the date's page says "period".
+            let next = OccasionMath.nextOccurrence(of: occasion, from: today, calendar: calendar)
+            let parts = calendar.dateComponents([.month, .day], from: next)
+            let nextText = OccasionMath.dateText(month: parts.month ?? 1, day: parts.day ?? 1, year: nil, calendar: calendar)
+            return "Next \(nextText) · \(OccasionMath.predictedCycleLength(cycle, calendar: calendar))-day cycle"
+        }
         let milestone = OccasionMath.milestoneText(for: occasion, today: today, calendar: calendar)
         let base = OccasionMath.dateText(of: occasion, calendar: calendar)
         return base + (milestone.map { " · " + $0 } ?? "")
@@ -603,6 +626,8 @@ struct OccasionCardView: View {
     }
 
     private var heroEyebrow: String {
+        if periodDay != nil { return "IN PROGRESS" }
+        if isLateCycle { return "LATE" }
         if days == 0 { return "TODAY" }
         if days == 1 { return "TOMORROW" }
         if days < 0 { return "PAST" }
@@ -612,7 +637,10 @@ struct OccasionCardView: View {
     }
 
     @ViewBuilder private var heroCount: some View {
-        if days == 0 {
+        if let day = periodDay {
+            Text("Day \(day)")
+                .font(Theme.display(60))
+        } else if days == 0 {
             Text("Today")
                 .font(Theme.display(60))
         } else {
@@ -671,12 +699,16 @@ struct OccasionCardView: View {
 
     private var dayUnit: String {
         let unit = abs(days) == 1 ? "day" : "days"
+        if isLateCycle { return unit + " late" }
         return days < 0 ? unit + " ago" : unit
     }
 
     @ViewBuilder private var compactTrailing: some View {
         VStack(spacing: 0) {
-            if days == 0 {
+            if let day = periodDay {
+                Text("Day \(day)")
+                    .font(Theme.display(22))
+            } else if days == 0 {
                 Text("Today")
                     .font(Theme.display(22))
             } else {

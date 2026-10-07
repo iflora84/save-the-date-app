@@ -4,6 +4,9 @@ enum OccasionKind: String, Codable, CaseIterable, Identifiable {
     case birthday
     case anniversary
     case custom
+    /// A menstrual cycle. Named "Cycle" with a flower so a glance at the list
+    /// gives nothing away; the date's page says what it is.
+    case cycle
 
     var id: String { return rawValue }
 
@@ -15,6 +18,8 @@ enum OccasionKind: String, Codable, CaseIterable, Identifiable {
             return "Anniversary"
         case .custom:
             return "Other"
+        case .cycle:
+            return "Cycle"
         }
     }
 
@@ -26,7 +31,79 @@ enum OccasionKind: String, Codable, CaseIterable, Identifiable {
             return "💍"
         case .custom:
             return "🎉"
+        case .cycle:
+            return "🌸"
         }
+    }
+}
+
+/// A calendar day with no time of day, so a logged period start never shifts
+/// when the phone changes time zone.
+struct CalendarDay: Codable, Equatable, Hashable, Comparable {
+    var year: Int
+    var month: Int
+    var day: Int
+
+    init(year: Int, month: Int, day: Int) {
+        self.year = year
+        self.month = month
+        self.day = day
+    }
+
+    init(date: Date, calendar: Calendar) {
+        let parts = calendar.dateComponents([.year, .month, .day], from: date)
+        self.year = parts.year ?? 2000
+        self.month = parts.month ?? 1
+        self.day = parts.day ?? 1
+    }
+
+    func date(calendar: Calendar) -> Date? {
+        var parts = DateComponents()
+        parts.year = year
+        parts.month = month
+        parts.day = day
+        return calendar.date(from: parts)
+    }
+
+    static func < (lhs: CalendarDay, rhs: CalendarDay) -> Bool {
+        if lhs.year != rhs.year { return lhs.year < rhs.year }
+        if lhs.month != rhs.month { return lhs.month < rhs.month }
+        return lhs.day < rhs.day
+    }
+}
+
+/// Period tracking for a `.cycle` date. Everything stays in occasions.json on the phone.
+struct CycleData: Codable, Equatable, Hashable {
+    static let defaultCycleLength: Int = 28
+    static let defaultPeriodLength: Int = 5
+    static let cycleLengthRange: ClosedRange<Int> = 18...45
+    static let periodLengthRange: ClosedRange<Int> = 2...10
+
+    /// Logged period start days, oldest first.
+    var starts: [CalendarDay]
+    /// Used for the prediction until two starts have been logged.
+    var usualCycleLength: Int
+    var periodLength: Int
+    /// Lock-screen reminders say "Cycle" rather than "period" when true.
+    var discreet: Bool
+
+    init(starts: [CalendarDay], usualCycleLength: Int = CycleData.defaultCycleLength,
+         periodLength: Int = CycleData.defaultPeriodLength, discreet: Bool = true) {
+        self.starts = starts.sorted()
+        self.usualCycleLength = usualCycleLength
+        self.periodLength = periodLength
+        self.discreet = discreet
+    }
+
+    /// Adds a start once; days are kept in order.
+    mutating func log(_ day: CalendarDay) {
+        if starts.contains(day) { return }
+        starts.append(day)
+        starts.sort()
+    }
+
+    mutating func remove(_ day: CalendarDay) {
+        starts.removeAll { $0 == day }
     }
 }
 
@@ -74,6 +151,8 @@ struct Occasion: Identifiable, Codable, Equatable, Hashable {
     /// True for a date that happens once, such as a flight. Optional so older
     /// files still decode; they repeat yearly.
     var oneTime: Bool?
+    /// Only on `.cycle` dates.
+    var cycle: CycleData?
 
     init(
         id: UUID = UUID(),
@@ -93,7 +172,8 @@ struct Occasion: Identifiable, Codable, Equatable, Hashable {
         isSample: Bool? = nil,
         photoFileName: String? = nil,
         photoFullFileName: String? = nil,
-        oneTime: Bool? = nil
+        oneTime: Bool? = nil,
+        cycle: CycleData? = nil
     ) {
         self.id = id
         self.name = name
@@ -113,11 +193,17 @@ struct Occasion: Identifiable, Codable, Equatable, Hashable {
         self.photoFileName = photoFileName
         self.photoFullFileName = photoFullFileName
         self.oneTime = oneTime
+        self.cycle = cycle
     }
 
     /// A one-time date needs its year to mean anything; without one it repeats.
     var isOneTime: Bool {
         return oneTime == true && year != nil
+    }
+
+    /// A cycle needs at least one logged start to predict anything.
+    var isCycle: Bool {
+        return kind == .cycle && !(cycle?.starts.isEmpty ?? true)
     }
 
     var isSeededSample: Bool {
