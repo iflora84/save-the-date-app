@@ -88,11 +88,14 @@ jobs:
         run: |
           app="build/${SCHEME}.xcarchive/Products/Applications/${SCHEME}.app"
           test -d "$app/PlugIns/SaveTheDateShare.appex"
+          test -d "$app/PlugIns/SaveTheDateWidget.appex"
           test -f "$app/PrivacyInfo.xcprivacy"
-          test -f "$app/PlugIns/SaveTheDateShare.appex/PrivacyInfo.xcprivacy"
-          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$app/Info.plist"
-          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$app/PlugIns/SaveTheDateShare.appex/Info.plist"
-          for bundle in "$app" "$app/PlugIns/SaveTheDateShare.appex"; do
+          version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$app/Info.plist")
+          for ext in "$app"/PlugIns/*.appex; do
+            test -f "$ext/PrivacyInfo.xcprivacy" || { echo "No privacy manifest in $ext"; exit 1; }
+            [ "$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$ext/Info.plist")" = "$version" ] || { echo "Build number differs in $ext"; exit 1; }
+          done
+          for bundle in "$app" "$app"/PlugIns/*.appex; do
             codesign -d --entitlements - --xml "$bundle" > entitlements.xml 2>/dev/null || true
             plutil -p entitlements.xml || true
             grep -q "group.com.iflora.savethedate" entitlements.xml || { echo "App Group missing from $bundle"; exit 1; }
@@ -145,7 +148,7 @@ jobs:
           export_to export
           mkdir -p build/ipa && unzip -q build/out_export/*.ipa -d build/ipa
           signed="build/ipa/Payload/${SCHEME}.app"
-          for bundle in "$signed" "$signed/PlugIns/SaveTheDateShare.appex"; do
+          for bundle in "$signed" "$signed"/PlugIns/*.appex; do
             codesign -d --entitlements - --xml "$bundle" > signed_entitlements.xml 2>/dev/null
             plutil -p signed_entitlements.xml
             grep -q "group.com.iflora.savethedate" signed_entitlements.xml || { echo "App Group missing from signed $bundle"; exit 1; }

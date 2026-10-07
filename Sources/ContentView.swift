@@ -25,10 +25,13 @@ struct ContentView: View {
             .onChange(of: store.occasions, initial: true) { _, occasions in
                 if !DemoMode.isActive {
                     Task { await scheduler.reschedule(occasions) }
+                    WidgetBridge.publish(occasions, store: store)
                 }
             }
             .onChange(of: scenePhase, initial: true) { _, phase in
                 if phase == .active && !DemoMode.isActive {
+                    // Yearly dates roll over and cycles get re-predicted; keep the widget current.
+                    WidgetBridge.publish(store.occasions, store: store)
                     Task {
                         await scheduler.refreshAuthorizationStatus()
                         await scheduler.reschedule(store.occasions)

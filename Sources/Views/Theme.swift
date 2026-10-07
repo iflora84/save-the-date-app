@@ -56,23 +56,28 @@ enum Theme {
     /// because the day count and card titles are white heavy type drawn straight on top.
     /// The case names are persisted in occasions.json, so they never change, only the hues.
     static func colors(_ palette: OccasionPalette) -> [Color] {
+        return hexes(palette).map { Color(hex: $0) }
+    }
+
+    /// The same two stops as 0xRRGGBB, so the widget snapshot can carry them.
+    static func hexes(_ palette: OccasionPalette) -> [UInt] {
         switch palette {
         case .sunset:
-            return [Color(hex: 0x8A3F30), Color(hex: 0x9E5C3C)]
+            return [0x8A3F30, 0x9E5C3C]
         case .ocean:
-            return [Color(hex: 0x1C4A58), Color(hex: 0x2F7480)]
+            return [0x1C4A58, 0x2F7480]
         case .berry:
-            return [Color(hex: 0x5A2A47), Color(hex: 0x87455F)]
+            return [0x5A2A47, 0x87455F]
         case .lime:
-            return [Color(hex: 0x2C4A3A), Color(hex: 0x467457)]
+            return [0x2C4A3A, 0x467457]
         case .candy:
-            return [Color(hex: 0x833643), Color(hex: 0x9C5C68)]
+            return [0x833643, 0x9C5C68]
         case .midnight:
-            return [Color(hex: 0x1F2C44), Color(hex: 0x3B5372)]
+            return [0x1F2C44, 0x3B5372]
         case .peach:
-            return [Color(hex: 0x82452A), Color(hex: 0x99613D)]
+            return [0x82452A, 0x99613D]
         case .grape:
-            return [Color(hex: 0x42325A), Color(hex: 0x6B5486)]
+            return [0x42325A, 0x6B5486]
         }
     }
 
