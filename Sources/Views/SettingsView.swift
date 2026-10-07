@@ -9,6 +9,7 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
     @AppStorage(AppDefaults.reminderHourKey) private var defaultReminderHour: Int = AppDefaults.defaultReminderHour
     @AppStorage(AppDefaults.reminderMinuteKey) private var defaultReminderMinute: Int = AppDefaults.defaultReminderMinute
+    @AppStorage(AppAppearance.storageKey) private var appearance: String = AppAppearance.dark.rawValue
     @State private var showImport: Bool = false
     @State private var showPaywall: Bool = false
     @State private var restoreMessage: String? = nil
@@ -19,11 +20,13 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                appearanceSection
                 remindersSection
                 datesSection
                 unlockSection
                 aboutSection
             }
+            .themedFormBackground()
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -50,6 +53,21 @@ struct SettingsView: View {
             .sheet(isPresented: $showPaywall) {
                 PaywallView()
             }
+        }
+    }
+
+    private var appearanceSection: some View {
+        Section {
+            Picker("Theme", selection: $appearance) {
+                ForEach(AppAppearance.allCases) { option in
+                    Text(option.label).tag(option.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
+        } header: {
+            Text("Appearance")
+        } footer: {
+            Text("Auto follows your iPhone's light or dark setting.")
         }
     }
 
