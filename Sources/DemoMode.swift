@@ -76,7 +76,7 @@ enum DemoMode {
 
     private static func samples(unlocked: Bool) -> [Sample] {
         let free: [Sample] = [
-            Sample(name: "Mum", kind: .birthday, emoji: nil, inDays: 3, year: 1961,
+            Sample(name: "Mum", kind: .birthday, emoji: nil, inDays: 10, year: 1961,
                    offsets: [7, 1, 0], note: "Book the table at Trattoria.", palette: .sunset, photo: "mum"),
             Sample(name: "Alex & Sam", kind: .anniversary, emoji: nil, inDays: 12, year: 2019,
                    offsets: [14, 1], note: "", palette: .berry, photo: "couple"),
