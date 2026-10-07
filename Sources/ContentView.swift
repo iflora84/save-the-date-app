@@ -5,7 +5,7 @@ struct ContentView: View {
     @EnvironmentObject private var scheduler: NotificationScheduler
     @EnvironmentObject private var purchases: PurchaseManager
     @Environment(\.scenePhase) private var scenePhase
-    @AppStorage(AppAppearance.storageKey) private var appearance: String = AppAppearance.dark.rawValue
+    @AppStorage(AppAppearance.storageKey) private var appearance: String = AppAppearance.defaultChoice.rawValue
 
     init() {
         Theme.applyNavigationBarFonts()
@@ -15,7 +15,7 @@ struct ContentView: View {
         root
             .fontDesign(.rounded)
             .tint(Theme.accent)
-            .preferredColorScheme((AppAppearance(rawValue: appearance) ?? .dark).colorScheme)
+            .preferredColorScheme((AppAppearance(rawValue: appearance) ?? .defaultChoice).colorScheme)
             .task {
                 if !DemoMode.isActive {
                     await purchases.start()

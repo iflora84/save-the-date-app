@@ -48,8 +48,7 @@ jobs:
           udid=${{ steps.sim.outputs.udid }}
           xcrun simctl boot "$udid" || true
           xcrun simctl bootstatus "$udid" -b
-          # Deliberately light: the app forces dark via UIUserInterfaceStyle, so a light
-          # simulator proves the force still works. Light shots mean the force broke.
+          # Light matches the app's default theme (Settings > Appearance).
           xcrun simctl ui "$udid" appearance light
           xcrun simctl status_bar "$udid" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
           xcrun simctl install "$udid" "build/sim/Build/Products/Debug-iphonesimulator/${SCHEME}.app"
