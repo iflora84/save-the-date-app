@@ -1,9 +1,37 @@
 import SwiftUI
 import UIKit
 
-enum ListSheet: String, Identifiable {
-    case editor, settings, importContacts, importCalendar, paywall, addChooser, pasteText, screenshot, shared
-    var id: String { return rawValue }
+/// What the list shows in its sheet. Data a sheet needs travels inside the case:
+/// a sheet's content is built from the list's last render, so a separate @State
+/// set just before presenting can arrive stale (build 25: "Review" opened an empty
+/// editor instead of the found flight).
+enum ListSheet: Identifiable {
+    case editor(prefill: Occasion?)
+    case settings, importContacts, importCalendar, paywall, addChooser, pasteText, screenshot
+    case shared(SharedInbox.Item)
+
+    var id: String {
+        switch self {
+        case .editor:
+            return "editor"
+        case .settings:
+            return "settings"
+        case .importContacts:
+            return "importContacts"
+        case .importCalendar:
+            return "importCalendar"
+        case .paywall:
+            return "paywall"
+        case .addChooser:
+            return "addChooser"
+        case .pasteText:
+            return "pasteText"
+        case .screenshot:
+            return "screenshot"
+        case .shared:
+            return "shared"
+        }
+    }
 }
 
 struct OccasionListView: View {
@@ -22,10 +50,9 @@ struct OccasionListView: View {
     @State private var pendingAdd: Bool = false
     /// Opened once the current sheet has finished closing.
     @State private var nextSheet: ListSheet? = nil
-    /// A date found in pasted text or a screenshot, for the editor to start from.
-    @State private var editorPrefill: Occasion? = nil
-    /// What arrived through "Share > Save the Date" while the app was closed.
-    @State private var sharedItem: SharedInbox.Item? = nil
+    /// A found date waiting behind the paywall; it only travels in sheetDismissed,
+    /// never into a sheet's content directly.
+    @State private var prefillAfterUnlock: Occasion? = nil
     @State private var pendingDelete: Occasion? = nil
     @State private var today: Date = Date()
     @State private var confettiTrigger: Int = 0
@@ -329,7 +356,7 @@ struct OccasionListView: View {
     }
 
     private func addTapped() {
-        editorPrefill = nil
+        prefillAfterUnlock = nil
         if store.canAddMore(isUnlocked: purchases.isUnlocked) {
             activeSheet = .addChooser
         } else {
@@ -347,8 +374,13 @@ struct OccasionListView: View {
         if pendingAdd {
             pendingAdd = false
             if purchases.isUnlocked {
-                activeSheet = editorPrefill == nil ? .addChooser : .editor
+                if let prefill = prefillAfterUnlock {
+                    activeSheet = .editor(prefill: prefill)
+                } else {
+                    activeSheet = .addChooser
+                }
             }
+            prefillAfterUnlock = nil
         }
     }
 
@@ -357,14 +389,13 @@ struct OccasionListView: View {
     private func openSharedItem() {
         if activeSheet != nil || DemoMode.isActive { return }
         guard let inbox = SharedInbox.directory, let item = SharedInbox.takeOldest(from: inbox) else { return }
-        sharedItem = item
-        activeSheet = .shared
+        activeSheet = .shared(item)
     }
 
     private func chose(_ method: AddMethod) {
         switch method {
         case .typeIt:
-            nextSheet = .editor
+            nextSheet = .editor(prefill: nil)
         case .pasteText:
             nextSheet = .pasteText
         case .screenshot:
@@ -375,15 +406,16 @@ struct OccasionListView: View {
     }
 
     private func picked(_ found: FoundDate) {
-        editorPrefill = found.draft(
+        let draft = found.draft(
             palette: OccasionPalette.random(),
             reminderHour: defaultReminderHour,
             reminderMinute: defaultReminderMinute
         )
         // A shared item can arrive when the free dates are used up.
         if store.canAddMore(isUnlocked: purchases.isUnlocked) {
-            nextSheet = .editor
+            nextSheet = .editor(prefill: draft)
         } else {
+            prefillAfterUnlock = draft
             pendingAdd = true
             nextSheet = .paywall
         }
@@ -391,12 +423,12 @@ struct OccasionListView: View {
 
     @ViewBuilder private func sheetContent(_ sheet: ListSheet) -> some View {
         switch sheet {
-        case .editor:
+        case .editor(let prefill):
             OccasionEditorView(
                 editing: nil,
                 defaultReminderHour: defaultReminderHour,
                 defaultReminderMinute: defaultReminderMinute,
-                prefill: editorPrefill,
+                prefill: prefill,
                 onSave: { occasion in handleCreate(occasion) }
             )
         case .addChooser:
@@ -405,8 +437,8 @@ struct OccasionListView: View {
             TextImportView(source: .paste, onPick: { found in picked(found) })
         case .screenshot:
             TextImportView(source: .screenshot, onPick: { found in picked(found) })
-        case .shared:
-            sharedImportView
+        case .shared(let item):
+            sharedImportView(item)
         case .settings:
             SettingsView()
         case .importContacts:
@@ -428,14 +460,12 @@ struct OccasionListView: View {
         }
     }
 
-    @ViewBuilder private var sharedImportView: some View {
-        switch sharedItem {
+    @ViewBuilder private func sharedImportView(_ item: SharedInbox.Item) -> some View {
+        switch item {
         case .image(let data):
             TextImportView(source: .screenshot, sharedImage: UIImage(data: data), onPick: { found in picked(found) })
         case .text(let text):
             TextImportView(source: .paste, sharedText: text, onPick: { found in picked(found) })
-        case nil:
-            EmptyView()
         }
     }
 
