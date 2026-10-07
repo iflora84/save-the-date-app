@@ -94,6 +94,9 @@ struct TextImportView: View {
 
     let source: Source
     let onPick: (FoundDate) -> Void
+    /// Something sent with "Share > Save the Date"; it is read straight away.
+    let sharedText: String?
+    let sharedImage: UIImage?
     @Environment(\.dismiss) private var dismiss
 
     @State private var text: String = ""
@@ -107,8 +110,10 @@ struct TextImportView: View {
         case input, reading, results
     }
 
-    init(source: Source, onPick: @escaping (FoundDate) -> Void) {
+    init(source: Source, sharedText: String? = nil, sharedImage: UIImage? = nil, onPick: @escaping (FoundDate) -> Void) {
         self.source = source
+        self.sharedText = sharedText
+        self.sharedImage = sharedImage
         self.onPick = onPick
     }
 
@@ -127,6 +132,9 @@ struct TextImportView: View {
                 }
                 .onChange(of: photoItem) { _, item in
                     Task { await loadScreenshot(item) }
+                }
+                .task {
+                    await readShared()
                 }
         }
     }
@@ -311,10 +319,24 @@ struct TextImportView: View {
             return
         }
         photoItem = nil
+        await readScreenshot(image)
+    }
+
+    private func readScreenshot(_ image: UIImage) async {
         screenshot = image
         phase = .reading
         let recognized = await TextDateFinder.recognizeText(in: image)
         await finish(TextDateFinder.find(in: recognized))
+    }
+
+    private func readShared() async {
+        guard phase == .input else { return }
+        if let image = sharedImage {
+            await readScreenshot(image)
+        } else if let shared = sharedText {
+            text = shared
+            await read(shared)
+        }
     }
 
     private func read(_ pasted: String) async {
