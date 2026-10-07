@@ -18,12 +18,14 @@ enum OnDeviceAI {
 
     /// The model's reply, or nil when it is unavailable or the request fails.
     /// A fresh session per call keeps each request inside the small context window.
-    static func respond(instructions: String, prompt: String) async -> String? {
+    /// A low temperature keeps labelling steady: the same text gets the same answer.
+    static func respond(instructions: String, prompt: String, temperature: Double? = nil) async -> String? {
         if #available(iOS 26.0, *) {
             guard SystemLanguageModel.default.isAvailable else { return nil }
             let session = LanguageModelSession(model: SystemLanguageModel.default, tools: [], instructions: instructions)
             do {
-                let response = try await session.respond(to: prompt, options: GenerationOptions())
+                let options = GenerationOptions(sampling: nil, temperature: temperature, maximumResponseTokens: 400)
+                let response = try await session.respond(to: prompt, options: options)
                 return response.content
             } catch {
                 return nil
