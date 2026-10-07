@@ -23,7 +23,8 @@ struct OccasionEditorView: View {
     @State private var cropRequest: CropRequest? = nil
     @FocusState private var customFocused: Bool
 
-    init(editing occasion: Occasion?, defaultReminderHour: Int, defaultReminderMinute: Int, onSave: @escaping (Occasion) -> Void) {
+    /// `prefill` starts a new date from something found in text or a screenshot.
+    init(editing occasion: Occasion?, defaultReminderHour: Int, defaultReminderMinute: Int, prefill: Occasion? = nil, onSave: @escaping (Occasion) -> Void) {
         let currentYear: Int = OccasionEditorView.currentYear()
         self.isNew = occasion == nil
         self.onSave = onSave
@@ -31,6 +32,8 @@ struct OccasionEditorView: View {
         let initialDraft: Occasion
         if let existing = occasion {
             initialDraft = existing
+        } else if let found = prefill {
+            initialDraft = found
         } else {
             let now = Date()
             let month = Calendar.current.component(.month, from: now)
@@ -54,9 +57,10 @@ struct OccasionEditorView: View {
         let minute = initialDraft.reminderMinute
 
         _draft = State(initialValue: initialDraft)
-        _includeYear = State(initialValue: occasion?.year != nil)
-        _repeatsYearly = State(initialValue: !(occasion?.isOneTime ?? false))
-        _year = State(initialValue: occasion?.year ?? (currentYear - 30))
+        let start = occasion ?? prefill
+        _includeYear = State(initialValue: start?.year != nil)
+        _repeatsYearly = State(initialValue: !(start?.isOneTime ?? false))
+        _year = State(initialValue: start?.year ?? (currentYear - 30))
         _reminderTime = State(initialValue: Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: Date()) ?? Date())
     }
 

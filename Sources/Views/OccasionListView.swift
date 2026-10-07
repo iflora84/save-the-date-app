@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 enum ListSheet: String, Identifiable {
-    case editor, settings, importContacts, importCalendar, paywall
+    case editor, settings, importContacts, importCalendar, paywall, addChooser, pasteText, screenshot
     var id: String { return rawValue }
 }
 
@@ -20,6 +20,10 @@ struct OccasionListView: View {
     @State private var path: [UUID] = []
     @State private var activeSheet: ListSheet? = nil
     @State private var pendingAdd: Bool = false
+    /// Opened once the current sheet has finished closing.
+    @State private var nextSheet: ListSheet? = nil
+    /// A date found in pasted text or a screenshot, for the editor to start from.
+    @State private var editorPrefill: Occasion? = nil
     @State private var pendingDelete: Occasion? = nil
     @State private var today: Date = Date()
     @State private var confettiTrigger: Int = 0
@@ -319,8 +323,9 @@ struct OccasionListView: View {
     }
 
     private func addTapped() {
+        editorPrefill = nil
         if store.canAddMore(isUnlocked: purchases.isUnlocked) {
-            activeSheet = .editor
+            activeSheet = .addChooser
         } else {
             pendingAdd = true
             activeSheet = .paywall
@@ -328,12 +333,39 @@ struct OccasionListView: View {
     }
 
     private func sheetDismissed() {
+        if let next = nextSheet {
+            nextSheet = nil
+            activeSheet = next
+            return
+        }
         if pendingAdd {
             pendingAdd = false
             if purchases.isUnlocked {
-                activeSheet = .editor
+                activeSheet = .addChooser
             }
         }
+    }
+
+    private func chose(_ method: AddMethod) {
+        switch method {
+        case .typeIt:
+            nextSheet = .editor
+        case .pasteText:
+            nextSheet = .pasteText
+        case .screenshot:
+            nextSheet = .screenshot
+        case .calendar:
+            nextSheet = .importCalendar
+        }
+    }
+
+    private func picked(_ found: FoundDate) {
+        editorPrefill = found.draft(
+            palette: OccasionPalette.random(),
+            reminderHour: defaultReminderHour,
+            reminderMinute: defaultReminderMinute
+        )
+        nextSheet = .editor
     }
 
     @ViewBuilder private func sheetContent(_ sheet: ListSheet) -> some View {
@@ -343,8 +375,15 @@ struct OccasionListView: View {
                 editing: nil,
                 defaultReminderHour: defaultReminderHour,
                 defaultReminderMinute: defaultReminderMinute,
+                prefill: editorPrefill,
                 onSave: { occasion in handleCreate(occasion) }
             )
+        case .addChooser:
+            AddDateChooser(onChoose: { method in chose(method) })
+        case .pasteText:
+            TextImportView(source: .paste, onPick: { found in picked(found) })
+        case .screenshot:
+            TextImportView(source: .screenshot, onPick: { found in picked(found) })
         case .settings:
             SettingsView()
         case .importContacts:
