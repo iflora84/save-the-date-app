@@ -66,6 +66,16 @@ jobs:
             | tee build/archive.log | grep -E "error:|\*\* ARCHIVE" || true
           grep -q "\*\* ARCHIVE SUCCEEDED \*\*" build/archive.log
 
+      # FoundationModels exists only on iOS 26. A strong link would crash the app at
+      # launch on iOS 17-25, which no iOS 26 simulator or test phone would show.
+      - name: FoundationModels is weakly linked
+        if: github.event_name != 'pull_request'
+        run: |
+          bin="build/${SCHEME}.xcarchive/Products/Applications/${SCHEME}.app/${SCHEME}"
+          otool -l "$bin" | awk '/cmd LC_/{cmd=$2} /name .*FoundationModels/{print cmd}' | tee linkage.txt
+          grep -qx LC_LOAD_WEAK_DYLIB linkage.txt
+          ! grep -qx LC_LOAD_DYLIB linkage.txt
+
       - name: App Store Connect API key
         if: github.event_name != 'pull_request' && github.repository == 'iflora84/save-the-date'
         env:

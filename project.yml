@@ -18,8 +18,13 @@ targets:
     type: application
     platform: iOS
     sources: [Sources]
+    dependencies:
+      # iOS 26 only; weak so the app still launches on iOS 17-25.
+      - sdk: FoundationModels.framework
+        weak: true
     settings:
       base:
+        OTHER_LDFLAGS: ["$(inherited)", "-weak_framework", "FoundationModels"]
         PRODUCT_BUNDLE_IDENTIFIER: com.iflora.savethedate
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -32,6 +37,7 @@ targets:
         UILaunchScreen: {}
         UIUserInterfaceStyle: Dark
         ITSAppUsesNonExemptEncryption: false
+        NSCalendarsFullAccessUsageDescription: Save the Date looks through your calendar for birthdays, anniversaries and trips so you can add them in one go. Your calendar is read on this iPhone only and never changed or uploaded.
         NSContactsUsageDescription: Save the Date reads birthdays and anniversaries from your contacts so you can add them with one tap. Nothing is changed or uploaded.
     scheme:
       testTargets: [SaveTheDateTests]
