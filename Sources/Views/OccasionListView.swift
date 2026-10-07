@@ -384,8 +384,7 @@ struct OccasionCardView: View {
     private var heroContent: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top) {
-                Text(occasion.displayEmoji)
-                    .font(.system(size: 72))
+                heroArt
                 Spacer()
                 if occasion.isSeededSample {
                     ExampleBadge()
@@ -404,12 +403,22 @@ struct OccasionCardView: View {
         .shadow(color: Color.black.opacity(0.15), radius: 2, x: 0, y: 1)
     }
 
+    // The big card keeps its bare emoji; a photo gets a framed circle so a face reads as a portrait.
+    @ViewBuilder private var heroArt: some View {
+        if occasion.photoFileName != nil {
+            OccasionAvatar(occasion: occasion, size: 104, emojiSize: 64)
+                .overlay {
+                    Circle().stroke(Color.white.opacity(0.85), lineWidth: 3)
+                }
+        } else {
+            Text(occasion.displayEmoji)
+                .font(.system(size: 72))
+        }
+    }
+
     private var compactContent: some View {
         HStack(spacing: 14) {
-            Text(occasion.displayEmoji)
-                .font(.system(size: 40))
-                .frame(width: 60, height: 60)
-                .background(Color.white.opacity(0.22), in: Circle())
+            OccasionAvatar(occasion: occasion, size: 60, emojiSize: 40)
             VStack(alignment: .leading, spacing: 2) {
                 if occasion.isSeededSample {
                     ExampleBadge()
@@ -439,6 +448,39 @@ struct OccasionCardView: View {
                     .font(Theme.font(12, weight: .semibold))
             }
         }
+    }
+}
+
+/// The date's photo in a circle, or its emoji when it has none or the file is missing.
+struct OccasionAvatar: View {
+    let occasion: Occasion
+    let size: CGFloat
+    let emojiSize: CGFloat
+    @EnvironmentObject private var store: OccasionStore
+    @State private var image: UIImage? = nil
+
+    var body: some View {
+        ZStack {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Text(occasion.displayEmoji)
+                    .font(.system(size: emojiSize))
+            }
+        }
+        .frame(width: size, height: size)
+        .background(Color.white.opacity(0.22), in: Circle())
+        .clipShape(Circle())
+        .task(id: occasion.photoFileName) {
+            image = loadImage()
+        }
+    }
+
+    private func loadImage() -> UIImage? {
+        guard let url = store.photoURL(for: occasion) else { return nil }
+        return UIImage(contentsOfFile: url.path)
     }
 }
 

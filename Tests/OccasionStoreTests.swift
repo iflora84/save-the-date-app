@@ -166,6 +166,37 @@ final class OccasionStoreTests: XCTestCase {
         XCTAssertEqual(store.remainingFreeSlots(), OccasionStore.freeLimit - 1)
     }
 
+    func testReplacingOrDeletingAPhotoRemovesTheOldFile() throws {
+        let store = OccasionStore(directory: makeDirectory())
+        let firstName = try XCTUnwrap(store.savePhoto(Data([1, 2, 3])))
+        var mom = makeOccasion(name: "Mom", month: 3, day: 14)
+        mom.photoFileName = firstName
+        store.add(mom)
+        let firstURL = try XCTUnwrap(store.photoURL(for: mom))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: firstURL.path))
+
+        mom.photoFileName = try XCTUnwrap(store.savePhoto(Data([4, 5, 6])))
+        store.update(mom)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: firstURL.path), "the replaced photo is deleted")
+        let secondURL = try XCTUnwrap(store.photoURL(for: mom))
+        XCTAssertEqual(try Data(contentsOf: secondURL), Data([4, 5, 6]))
+
+        store.delete(id: mom.id)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: secondURL.path), "deleting the date deletes its photo")
+    }
+
+    func testFilesWithoutPhotoFieldStillLoad() throws {
+        let directory = makeDirectory()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let json = """
+        {"version":1,"occasions":[{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","name":"Mom","kind":"birthday","emoji":"🎂","month":3,"day":14,"reminderOffsets":[7],"reminderHour":9,"reminderMinute":0,"note":"","palette":"sunset","createdAt":"2026-01-01T00:00:00Z"}]}
+        """
+        try XCTUnwrap(json.data(using: .utf8)).write(to: directory.appendingPathComponent("occasions.json"))
+        let store = OccasionStore(directory: directory)
+        XCTAssertEqual(store.occasions.count, 1)
+        XCTAssertNil(store.occasions.first?.photoFileName)
+    }
+
     func testRemoveSamplesKeepsTheUsersOwnDates() throws {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: "remove-\(UUID().uuidString)"))
         let store = OccasionStore(directory: makeDirectory(), seedSamplesIfNew: true, defaults: defaults)
